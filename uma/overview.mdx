@@ -1,0 +1,94 @@
+---
+title: UMA API overview
+description: "REST access to Polymarket markets and their UMA optimistic-oracle resolutions."
+---
+
+The UMA API serves the data collected by Klarity's UMA pipeline: Polymarket
+markets, their resolution events (proposals and disputes), and the DVM votes
+cast on disputed resolutions.
+
+<Card title="Base URL" icon="link">
+  `https://uma.klarity.trade/v1`
+</Card>
+
+## Background
+
+Polymarket markets are resolved through UMA's optimistic oracle:
+
+1. A **proposal** suggests the resolution outcome for a market.
+2. Anyone may **dispute** the proposal.
+3. Disputed proposals go to a **DVM vote** of UMA token holders, who decide the
+   outcome.
+
+Klarity tracks this whole lifecycle — detecting proposals and disputes from the
+Polygon mempool in real time (with a subgraph backfill) and tracking DVM votes
+on Ethereum — and exposes the aggregated result through this API. A single
+market can have multiple **resolutions** over time; each resolution has a
+`type` of `proposal` or `dispute`.
+
+## Authentication
+
+All data endpoints require a valid Klarity session. Authentication uses the
+`klarity_access_token` cookie issued when you sign in to the dashboard — the
+same session used across Klarity. Browsers send it automatically; for
+server-to-server calls pass it explicitly:
+
+```bash
+curl https://uma.klarity.trade/v1/markets \
+  --cookie "klarity_access_token=<your-session-token>"
+```
+
+Requests without a valid cookie return `401 Unauthorized`. The only unauthenticated endpoint is the health check.
+
+<ResponseField name="GET /v1/health" type="endpoint">
+  Liveness check. No authentication.
+
+  ```json
+  { "status": "ok", "timestamp": "2026-06-11T12:24:58.154Z" }
+  ```
+</ResponseField>
+
+## Response envelope
+
+List endpoints wrap results in `data` with a `pagination` block; single-item
+endpoints return `{ "data": ... }`.
+
+```json
+{
+  "data": [ /* items */ ],
+  "pagination": { "total": 128, "limit": 50, "offset": 0, "hasMore": true }
+}
+```
+
+## Pagination
+
+List endpoints accept `limit` and `offset` query parameters.
+
+<ParamField query="limit" type="number" default="50">
+  Items per page. Maximum varies by endpoint (100 for markets, 50 for search).
+</ParamField>
+<ParamField query="offset" type="number" default="0">
+  Number of items to skip.
+</ParamField>
+
+## Errors
+
+| Status | Meaning |
+| --- | --- |
+| `400` | Missing or invalid parameter (for example, no `q` on search) |
+| `401` | Missing or invalid session cookie |
+| `404` | Market or resolution not found |
+| `500` | Internal server error |
+
+Error responses are JSON: `{ "error": "Market not found" }`.
+
+## Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Markets" icon="store" href="/uma/markets">
+    List, search, and look up markets and their resolutions.
+  </Card>
+  <Card title="Resolutions" icon="gavel" href="/uma/resolutions">
+    Active disputes across all markets, and the votes on a resolution.
+  </Card>
+</CardGroup>

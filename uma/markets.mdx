@@ -1,0 +1,113 @@
+---
+title: Markets
+description: "List, search, and look up Polymarket markets and their resolutions."
+---
+
+All endpoints are under `https://uma.klarity.trade/v1` and require the
+`klarity_access_token` cookie. See [Authentication](/uma/overview#authentication).
+
+## List markets
+
+```http
+GET /v1/markets
+```
+
+<ParamField query="active" type="boolean">
+  Filter by status. `true` returns only active, open markets; `false` returns
+  the rest; omit for all.
+</ParamField>
+<ParamField query="limit" type="number" default="50">Items per page (max 100).</ParamField>
+<ParamField query="offset" type="number" default="0">Items to skip.</ParamField>
+
+```bash
+curl "https://uma.klarity.trade/v1/markets?active=true&limit=50" \
+  --cookie "klarity_access_token=<token>"
+```
+
+Returns a paginated list of [market](#market-object) objects.
+
+## Search markets
+
+```http
+GET /v1/markets/search?q={query}
+```
+
+<ParamField query="q" type="string" required>Case-insensitive substring matched against the market question.</ParamField>
+<ParamField query="limit" type="number" default="20">Items per page (max 50).</ParamField>
+
+Returns `400` if `q` is missing.
+
+## Look up a market
+
+<CodeGroup>
+```http By market id
+GET /v1/markets/{marketId}
+```
+
+```http By CLOB token id
+GET /v1/markets/by-token/{tokenId}
+```
+
+```http By condition id
+GET /v1/markets/by-condition/{conditionId}
+```
+</CodeGroup>
+
+`GET /v1/markets/{marketId}` returns the market **with its resolutions**
+embedded. All three return `404` if no market matches.
+
+```json
+{
+  "data": {
+    "slug": "example-market-slug",
+    "marketId": "0x1234...",
+    "question": "Will X happen by date?",
+    "active": true,
+    "closed": false,
+    "resolutions": [ /* resolution objects, newest first */ ]
+  }
+}
+```
+
+## Get a market's resolutions
+
+```http
+GET /v1/markets/{marketId}/resolutions
+```
+
+Returns every resolution (proposals and disputes) for the market, newest
+first. `404` if the market is not found.
+
+```json
+{ "data": [ /* resolution objects */ ] }
+```
+
+## Market object
+
+<ResponseField name="slug" type="string">Polymarket slug; the market's primary key.</ResponseField>
+<ResponseField name="marketId" type="string">Polymarket market id.</ResponseField>
+<ResponseField name="conditionId" type="string">UMA/CTF condition id.</ResponseField>
+<ResponseField name="questionId" type="string">Question id.</ResponseField>
+<ResponseField name="clobTokenIds" type="string[]">CLOB outcome token ids.</ResponseField>
+<ResponseField name="question" type="string">The market question.</ResponseField>
+<ResponseField name="outcomes" type="string[]">Resolution options (for example `["YES","NO"]`).</ResponseField>
+<ResponseField name="active" type="boolean">Whether the market is active.</ResponseField>
+<ResponseField name="closed" type="boolean">Whether the market is closed.</ResponseField>
+<ResponseField name="latestResolutionId" type="string">Id of the most recent resolution.</ResponseField>
+<ResponseField name="latestResolutionType" type="string">`proposal` or `dispute`.</ResponseField>
+<ResponseField name="latestResolutionStatus" type="string">Status of the latest resolution.</ResponseField>
+<ResponseField name="updatedAt" type="string">Last update (ISO 8601).</ResponseField>
+
+## Resolution object
+
+<ResponseField name="resolutionId" type="string">Resolution id (the event timestamp).</ResponseField>
+<ResponseField name="type" type="string">`proposal` or `dispute`.</ResponseField>
+<ResponseField name="status" type="string">`pending`, `active`, `resolved`, or `rejected`.</ResponseField>
+<ResponseField name="proposedOutcome" type="string">Proposed outcome, decoded (for example `YES`, `NO`, `UNKNOWN`).</ResponseField>
+<ResponseField name="proposer" type="string">Address that proposed.</ResponseField>
+<ResponseField name="disputer" type="string">Address that disputed, when applicable.</ResponseField>
+<ResponseField name="source" type="string">`mempool` or `subgraph` — how Klarity detected it.</ResponseField>
+<ResponseField name="ancillaryData" type="string">UMA ancillary data for the request.</ResponseField>
+<ResponseField name="votingActive" type="boolean">Whether a DVM vote is in progress.</ResponseField>
+<ResponseField name="voteStats" type="object">Inline vote aggregate (totals and per-outcome breakdown), when votes exist.</ResponseField>
+<ResponseField name="timestamp" type="string">Event time (ISO 8601).</ResponseField>

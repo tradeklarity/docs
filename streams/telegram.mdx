@@ -1,0 +1,109 @@
+---
+title: Telegram monitor
+description: "Realtime AI-enriched Telegram channel messages over WebSocket."
+---
+
+The Telegram monitor watches a curated set of Telegram channels and broadcasts
+every new message, enriched with AI analysis, to all connected clients.
+
+<Card title="Endpoint" icon="telegram">
+  `wss://telegram.klarity.trade`
+</Card>
+
+## Connect
+
+```js
+import WebSocket from "ws";
+
+const ws = new WebSocket("wss://telegram.klarity.trade");
+
+ws.on("message", (raw) => {
+  const msg = JSON.parse(raw.toString());
+  switch (msg.type) {
+    case "connected":
+      console.log("connected as", msg.clientId);
+      break;
+    case "message":
+      console.log(`[${msg.channelTitle}] ${msg.text}`);
+      if (msg.isImportant) console.log("  ⚠︎", msg["ai-analysis"]);
+      break;
+  }
+});
+```
+
+## `connected` frame
+
+Sent once, immediately after the socket opens.
+
+<ResponseField name="type" type="string">Always `"connected"`.</ResponseField>
+<ResponseField name="clientId" type="string">Unique id assigned to this connection.</ResponseField>
+<ResponseField name="message" type="string">`"Connected to Klarity Telegram Monitor"`.</ResponseField>
+<ResponseField name="timestamp" type="string">ISO 8601 timestamp.</ResponseField>
+
+```json
+{
+  "type": "connected",
+  "clientId": "client_6_1780780916848",
+  "message": "Connected to Klarity Telegram Monitor",
+  "timestamp": "2026-06-11T12:20:16.848Z"
+}
+```
+
+## `message` frame
+
+Broadcast for every monitored Telegram message.
+
+<ResponseField name="type" type="string">Always `"message"`.</ResponseField>
+<ResponseField name="channelId" type="string">Source channel id.</ResponseField>
+<ResponseField name="channelTitle" type="string">Human-readable channel name.</ResponseField>
+<ResponseField name="channelUsername" type="string">Channel @username.</ResponseField>
+<ResponseField name="messageId" type="number">Telegram message id within the channel.</ResponseField>
+<ResponseField name="text" type="string">Original message text.</ResponseField>
+<ResponseField name="translatedText" type="string | null">English translation, or `null` if no translation was needed.</ResponseField>
+<ResponseField name="detectedLanguage" type="string | null">Detected source language, or `null`.</ResponseField>
+<ResponseField name="ai-analysis" type="string">Short AI assessment; for important messages it begins with `ALERT:`.</ResponseField>
+<ResponseField name="isImportant" type="boolean">Whether the AI flagged the message as market-relevant.</ResponseField>
+<ResponseField name="date" type="string">Message timestamp (ISO 8601).</ResponseField>
+<ResponseField name="views" type="number">View count, when available.</ResponseField>
+<ResponseField name="forwards" type="number">Forward count, when available.</ResponseField>
+<ResponseField name="media" type="WebSocketMedia[]">Attached media (see below). Empty array when none.</ResponseField>
+<ResponseField name="estimatedCoordinates" type="object | null">
+  `{ coordinates: [lat, lon] | null, locationName: string | null }`, or `null`
+  when no location was inferred.
+</ResponseField>
+<ResponseField name="relatedEvents" type="PolymarketEvent[]">Polymarket events the message may relate to.</ResponseField>
+
+### Media object
+
+<ResponseField name="type" type="string">One of `photo`, `video`, `document`, `audio`, `voice`, `sticker`, `animation`.</ResponseField>
+<ResponseField name="filename" type="string">Original filename.</ResponseField>
+<ResponseField name="mimeType" type="string">MIME type.</ResponseField>
+<ResponseField name="size" type="number">Size in bytes.</ResponseField>
+<ResponseField name="data" type="string">Base64-encoded file contents.</ResponseField>
+
+<Warning>
+  Media is delivered inline as base64. Broadcasts can be large (the server
+  allows payloads up to 50 MB). Stream and decode `media[].data` rather than
+  buffering many messages in memory.
+</Warning>
+
+```json
+{
+  "type": "message",
+  "channelId": "-1001234567890",
+  "channelTitle": "Example Channel",
+  "channelUsername": "example",
+  "messageId": 84213,
+  "text": "Breaking: ...",
+  "translatedText": null,
+  "detectedLanguage": "en",
+  "ai-analysis": "ALERT: references an active election market",
+  "isImportant": true,
+  "date": "2026-06-11T12:21:03.000Z",
+  "views": 10423,
+  "forwards": 87,
+  "media": [],
+  "estimatedCoordinates": null,
+  "relatedEvents": []
+}
+```

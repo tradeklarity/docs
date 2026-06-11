@@ -1,0 +1,102 @@
+---
+title: X (Twitter) monitor
+description: "Realtime AI-enriched tweets from monitored accounts over WebSocket."
+---
+
+The X monitor follows a set of accounts and broadcasts every new tweet,
+enriched with AI analysis, to all connected clients.
+
+<Card title="Endpoint" icon="x-twitter">
+  `wss://x.klarity.trade`
+</Card>
+
+## Connect
+
+```js
+const ws = new WebSocket("wss://x.klarity.trade");
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === "message") {
+    console.log(`@${msg.authorUsername}: ${msg.text}`);
+    if (msg.isImportant) console.log("  ⚠︎", msg["ai-analysis"]);
+  }
+};
+```
+
+## `connected` frame
+
+Sent once, immediately after the socket opens.
+
+<ResponseField name="type" type="string">Always `"connected"`.</ResponseField>
+<ResponseField name="clientId" type="string">Unique id assigned to this connection.</ResponseField>
+<ResponseField name="message" type="string">`"Connected to Twitter Monitor"`.</ResponseField>
+<ResponseField name="timestamp" type="string">ISO 8601 timestamp.</ResponseField>
+
+```json
+{
+  "type": "connected",
+  "clientId": "client_4_1780780917001",
+  "message": "Connected to Twitter Monitor",
+  "timestamp": "2026-06-11T12:21:57.001Z"
+}
+```
+
+## `message` frame
+
+Broadcast for every monitored tweet.
+
+<ResponseField name="type" type="string">Always `"message"`.</ResponseField>
+<ResponseField name="tweetId" type="string">Tweet id.</ResponseField>
+<ResponseField name="text" type="string">Tweet text.</ResponseField>
+<ResponseField name="translatedText" type="string | null">English translation, or `null` if not needed.</ResponseField>
+<ResponseField name="detectedLanguage" type="string | null">Detected source language, or `null`.</ResponseField>
+<ResponseField name="ai-analysis" type="string">Short AI assessment; begins with `ALERT:` for important tweets, empty string otherwise.</ResponseField>
+<ResponseField name="isImportant" type="boolean">Whether the AI flagged the tweet as market-relevant.</ResponseField>
+<ResponseField name="createdAt" type="string">Tweet creation time (ISO 8601).</ResponseField>
+<ResponseField name="authorId" type="string">Author's account id.</ResponseField>
+<ResponseField name="authorUsername" type="string">Author @handle.</ResponseField>
+<ResponseField name="authorName" type="string">Author display name.</ResponseField>
+<ResponseField name="authorProfileImage" type="string">Author avatar URL, when available.</ResponseField>
+<ResponseField name="likes" type="number">Like count at broadcast time.</ResponseField>
+<ResponseField name="retweets" type="number">Retweet count.</ResponseField>
+<ResponseField name="replies" type="number">Reply count.</ResponseField>
+<ResponseField name="views" type="number">View count.</ResponseField>
+<ResponseField name="isQuote" type="boolean">Whether the tweet is a quote tweet.</ResponseField>
+<ResponseField name="mediaUrls" type="string[]">URLs of attached media. Empty array when none.</ResponseField>
+<ResponseField name="permalink" type="string">Canonical link to the tweet.</ResponseField>
+<ResponseField name="estimatedCoordinates" type="object | null">
+  `{ coordinates: [lat, lon] | null, locationName: string | null }`, or `null`.
+</ResponseField>
+<ResponseField name="relatedEvents" type="object[]">Polymarket events the tweet may relate to.</ResponseField>
+
+<Note>
+  Unlike the Telegram stream, media is referenced by URL (`mediaUrls`), not
+  inlined — so X broadcasts stay small.
+</Note>
+
+```json
+{
+  "type": "message",
+  "tweetId": "2038413392667431321",
+  "text": "...",
+  "translatedText": null,
+  "detectedLanguage": "en",
+  "ai-analysis": "",
+  "isImportant": false,
+  "createdAt": "2026-06-11T12:22:40.000Z",
+  "authorId": "44196397",
+  "authorUsername": "example",
+  "authorName": "Example",
+  "authorProfileImage": "https://pbs.twimg.com/...",
+  "likes": 1203,
+  "retweets": 88,
+  "replies": 142,
+  "views": 90431,
+  "isQuote": false,
+  "mediaUrls": [],
+  "permalink": "https://x.com/example/status/2038413392667431321",
+  "estimatedCoordinates": null,
+  "relatedEvents": []
+}
+```

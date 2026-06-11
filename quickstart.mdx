@@ -1,47 +1,64 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: Quickstart
+description: "Connect to a realtime stream and call the UMA API in a few minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+## Subscribe to a realtime stream
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+The Telegram and X monitors are plain WebSocket endpoints. Connect, and you
+start receiving every enriched message as it arrives.
 
-## Prerequisites
+<CodeGroup>
+```js Node.js
+import WebSocket from "ws";
 
-Before you begin, you must have:
+const ws = new WebSocket("wss://telegram.klarity.trade");
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+ws.on("message", (raw) => {
+  const msg = JSON.parse(raw.toString());
+  if (msg.type === "connected") {
+    console.log("connected:", msg.clientId);
+    return;
+  }
+  if (msg.type === "message") {
+    console.log(`[${msg.channelTitle}] ${msg.text}`);
+  }
+});
+```
 
-## Get started
+```js Browser
+const ws = new WebSocket("wss://x.klarity.trade");
 
-<Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === "message") {
+    console.log(`@${msg.authorUsername}: ${msg.text}`);
+  }
+};
+```
+</CodeGroup>
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+The first frame is always a `connected` envelope; every following `message`
+frame is a broadcast. See [Telegram](/streams/telegram) and
+[X (Twitter)](/streams/twitter) for the full payload shapes.
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+## Call the UMA API
 
-    ```bash
-    your-cli start
-    ```
-  </Step>
-</Steps>
+The UMA API is REST over HTTPS, versioned under `/v1`. The health check needs
+no authentication:
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+```bash
+curl https://uma.klarity.trade/v1/health
+# {"status":"ok","timestamp":"2026-06-11T12:24:58.154Z"}
+```
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+Data endpoints require a Klarity session cookie. Once signed in to the
+dashboard, your browser sends the `klarity_access_token` cookie automatically:
+
+```bash
+curl https://uma.klarity.trade/v1/markets?active=true \
+  --cookie "klarity_access_token=<your-session-token>"
+```
+
+See the [UMA API overview](/uma/overview) for authentication details and the
+full endpoint reference.

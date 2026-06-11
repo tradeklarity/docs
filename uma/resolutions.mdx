@@ -1,0 +1,69 @@
+---
+title: Resolutions
+description: "Active disputes across markets and the DVM votes on a resolution."
+---
+
+All endpoints are under `https://uma.klarity.trade/v1` and require the
+`klarity_access_token` cookie. See [Authentication](/uma/overview#authentication).
+
+## List active disputes
+
+Returns disputes that are currently `active` across **all** markets — useful
+for a "live disputes" view.
+
+```http
+GET /v1/resolutions/disputes
+```
+
+<ParamField query="limit" type="number" default="50">Items per page.</ParamField>
+<ParamField query="offset" type="number" default="0">Items to skip.</ParamField>
+
+```bash
+curl "https://uma.klarity.trade/v1/resolutions/disputes" \
+  --cookie "klarity_access_token=<token>"
+```
+
+Returns a paginated list of [resolution](/uma/markets#resolution-object)
+objects (each also carries its market `slug`).
+
+```json
+{
+  "data": [ /* active dispute resolutions */ ],
+  "pagination": { "total": 3, "limit": 50, "offset": 0, "hasMore": false }
+}
+```
+
+## Get votes for a resolution
+
+Returns the individual DVM votes recorded for one resolution.
+
+```http
+GET /v1/resolutions/{slug}/{resolutionId}/votes
+```
+
+<ParamField path="slug" type="string" required>Market slug.</ParamField>
+<ParamField path="resolutionId" type="string" required>Resolution id (the event timestamp).</ParamField>
+
+```bash
+curl "https://uma.klarity.trade/v1/resolutions/example-market-slug/1749600000/votes" \
+  --cookie "klarity_access_token=<token>"
+```
+
+```json
+{ "data": [ /* vote objects */ ] }
+```
+
+### Vote object
+
+<ResponseField name="voterId" type="string">Voter address.</ResponseField>
+<ResponseField name="voteOption" type="string">Chosen outcome (`p1`–`p4`).</ResponseField>
+<ResponseField name="votingPower" type="string">Voting power in wei (UMA staked).</ResponseField>
+<ResponseField name="blockNumber" type="number">Ethereum block the vote was revealed in.</ResponseField>
+<ResponseField name="transactionHash" type="string">Reveal transaction hash.</ResponseField>
+<ResponseField name="timestamp" type="string">Vote time (ISO 8601).</ResponseField>
+
+<Tip>
+  Aggregate totals (vote counts and per-outcome breakdown) are also available
+  inline on the resolution itself as `voteStats`, so you don't need to fetch
+  every vote just to show a tally.
+</Tip>

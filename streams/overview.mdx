@@ -1,0 +1,62 @@
+---
+title: Realtime streams
+description: "WebSocket feeds of AI-enriched Telegram and X messages."
+---
+
+Klarity runs two monitors that watch their sources continuously and broadcast
+every message to connected clients over WebSocket. Each message is enriched
+before broadcast with:
+
+- **Translation** — non-English text is translated, with the detected language
+- **Importance scoring** — an AI flag (`isImportant`) and a short reason
+- **Coordinates** — estimated location when the content implies one
+- **Related Polymarket events** — markets the message may be relevant to
+
+<CardGroup cols={2}>
+  <Card title="Telegram monitor" icon="telegram" href="/streams/telegram">
+    `wss://telegram.klarity.trade`
+  </Card>
+  <Card title="X (Twitter) monitor" icon="x-twitter" href="/streams/twitter">
+    `wss://x.klarity.trade`
+  </Card>
+</CardGroup>
+
+## Connection lifecycle
+
+Both streams behave the same way:
+
+<Steps>
+  <Step title="Connect">
+    Open a WebSocket to the endpoint. No authentication or handshake is
+    required.
+  </Step>
+  <Step title="Receive the welcome frame">
+    The server immediately sends a `connected` frame with your `clientId`.
+  </Step>
+  <Step title="Receive message frames">
+    Every monitored message arrives as a `message` frame (see each stream's
+    payload reference).
+  </Step>
+</Steps>
+
+## Keepalive
+
+Both servers accept a client ping and reply with a pong. Send a frame whose
+body is `ping` (or any JSON the server recognizes) and you receive:
+
+```json
+{ "type": "pong", "timestamp": 1749645600000 }
+```
+
+This is useful to keep intermediaries from closing an idle connection. Clients
+should also reconnect automatically if the socket drops.
+
+## Frame envelope
+
+Every frame is JSON with a `type` field. Switch on it:
+
+| `type` | Meaning |
+| --- | --- |
+| `connected` | Sent once on connect; carries your `clientId` |
+| `message` | A monitored message (shape differs per stream) |
+| `pong` | Reply to a client keepalive ping |

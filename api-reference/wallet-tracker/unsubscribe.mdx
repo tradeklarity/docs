@@ -1,0 +1,56 @@
+---
+title: Unsubscribe from Wallet
+openapi: openapi-stream.yaml POST /wallets/unsubscribe
+description: Stop receiving trade notifications for a wallet address
+---
+
+## Overview
+
+Unsubscribe from a wallet you're currently tracking. After unsubscribing, you will no longer receive trade events for this wallet via the SSE stream.
+
+## Authentication
+
+Send your JWT as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Request Body
+
+<ParamField body="wallet" type="string" required>
+  Ethereum wallet address to stop tracking
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Whether the unsubscription succeeded
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable status message
+</ResponseField>
+
+<ResponseField name="wallet" type="string">
+  Normalized wallet address
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://ws.klarity.trade/stream/wallets/unsubscribe" \
+  -H "Content-Type: application/json" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..." \
+  -d '{"wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe"}'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "message": "Unsubscribed from wallet",
+  "wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe"
+}
+```
+</ResponseExample>

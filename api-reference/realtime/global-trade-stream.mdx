@@ -1,0 +1,90 @@
+---
+title: Global Trade Stream
+openapi: openapi-stream.yaml GET /trades/stream
+description: SSE stream of all Polymarket trades above $100 notional (no auth)
+---
+
+Streams all trades above $100 notional, enriched with trader stats and classification flags. Up to 50 recent trades sent on connect as backfill.
+
+## SSE Events
+
+### `event: system`
+
+```json
+{ "type": "connected", "config": { "notionalMin": 100 } }
+```
+
+### `event: trade`
+
+Same `TradeAlertEvent` schema as all other streams. Both backfill and live trades use this event type.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-20T14:30:00.000Z",
+  "wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe",
+  "notionalUsd": 15000,
+  "size": 25000,
+  "price": 0.6,
+  "side": "BUY",
+  "outcome": "Yes",
+  "marketSlug": "will-trump-win-2024",
+  "eventSlug": "2024-presidential-election",
+  "marketTitle": "Will Donald Trump win the 2024 US Presidential Election?",
+  "marketImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/trump.png",
+  "marketId": "0x1234567890abcdef",
+  "tokenId": "42",
+  "txHash": "0xabc123...",
+  "tags": ["politics", "us-elections"],
+  "portfolioValueUsd": 250000,
+  "winRate": 0.67,
+  "totalRealizedPnlUsd": 12500,
+  "marketsTraded": 42,
+  "isWhale": true,
+  "isSmartMoney": true,
+  "isInsider": false,
+  "ageHours": 8760,
+  "traderName": "CryptoWhale42",
+  "profileImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/avatars/abc123.jpg",
+  "bidLiquidityUsd": 50000,
+  "askLiquidityUsd": 48000,
+  "spreadPct": 0.8
+}
+```
+
+<RequestExample>
+```bash cURL
+curl -N "https://ws.klarity.trade/stream/trades/stream"
+```
+
+```typescript TypeScript
+const es = new EventSource('https://ws.klarity.trade/stream/trades/stream');
+
+es.addEventListener('trade', (e) => {
+  const trade: TradeAlertEvent = JSON.parse(e.data);
+});
+
+es.addEventListener('system', (e) => {
+  const msg = JSON.parse(e.data);
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: system
+data: {"type":"connected","config":{"notionalMin":100}}
+
+event: trade
+data: {"id":"abc123","timestamp":"2024-01-20T14:29:00.000Z","wallet":"0x5aa981...","notionalUsd":500,...}
+
+event: trade
+data: {"id":"def456","timestamp":"2024-01-20T14:30:00.000Z","wallet":"0x5aa981...","notionalUsd":15000,...}
+
+: heartbeat
+
+event: trade
+data: {"id":"ghi789","timestamp":"2024-01-20T14:30:30.000Z","wallet":"0xbeef...","notionalUsd":8000,...}
+
+```
+</ResponseExample>

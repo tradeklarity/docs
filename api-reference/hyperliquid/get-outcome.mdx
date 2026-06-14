@@ -1,0 +1,48 @@
+---
+title: 'Get HIP-4 Outcome Detail'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/{outcomeId}
+description: Get detail for a single HIP-4 outcome by outcome ID
+---
+
+Returns full detail for a single HIP-4 **outcome** (tradeable binary), including:
+- Outcome metadata (name, description, class, underlying, targetPrice, quoteToken, period)
+- Container question ID (null for standalone outcomes)
+- Current prices (yesMidPx, noMidPx), resolution status, settlement info
+- 24h and 7d volume and trade counts
+- Holder metrics (total, yes, no, whale, smart money)
+- Top holders by net position and recent trades
+
+**Terminology:**
+- **Outcome** = tradeable binary (≈ Polymarket market)
+- **Question** = container grouping outcomes (≈ Polymarket event)
+- **Standalone outcome** = outcome with no question wrapper (HL-specific)
+
+For a unified browse experience with questions and embedded outcomes, use `POST /hyperliquid/questions/discover`.
+
+## Path Parameters
+
+<ParamField path="outcomeId" type="integer" required>
+  HIP-4 outcome ID (numeric)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl https://api.klarity.trade/hyperliquid/outcomes/123
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/outcomes/123');
+const { data } = await res.json();
+// data.outcomeId, data.questionId (null for standalone)
+// data.name, data.description (raw pipe-encoded)
+// data.class, data.underlying, data.targetPrice, data.quoteToken
+// data.yesMidPx, data.noMidPx
+// data.isResolved, data.winningSide
+```
+</CodeGroup>
+
+<Note>
+  Returns 404 if outcome not found.
+</Note>

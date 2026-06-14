@@ -1,0 +1,51 @@
+---
+title: 'Correlated HIP-4 Outcomes'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/{outcomeId}/correlated
+description: Top-K HIP-4 outcomes correlated with a given outcome by price
+---
+
+Top-K outcomes whose `yes_mid_px` co-moves with the target outcome,
+computed as Pearson correlation over a rolling 7-day window of
+minute-bucketed snapshots.
+
+The `compute-hl-outcome-correlations` sync job runs every 30 minutes,
+keeps the top 50 strongest correlations per outcome, and persists pairs
+with |r| above the minimum threshold (default 0.3).
+
+## Path Parameters
+
+<ParamField path="outcomeId" type="integer" required>
+  HIP-4 outcome ID (numeric)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="10">
+  Number of correlated outcomes to return (1-100)
+</ParamField>
+<ParamField query="minCorrelation" type="number" default="0.3">
+  Minimum |correlation| to include (0-1)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/123/correlated?limit=10"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/outcomes/123/correlated?limit=10',
+);
+const { correlatedOutcomes } = await res.json();
+for (const o of correlatedOutcomes) {
+  console.log(o.outcomeId, o.name, o.correlation.toFixed(3));
+}
+```
+</CodeGroup>
+
+<Note>
+  Returns an empty `correlatedOutcomes` list when the outcome has no stored
+  correlations (e.g. low-volume outcomes excluded from the candidate set).
+</Note>

@@ -1,0 +1,2476 @@
+openapi: 3.1.0
+info:
+  title: Klarity Stream API
+  version: 1.0.0
+  description: |
+    Real-time streaming APIs for Polymarket market events, trades, and wallet tracking.
+
+    This API provides Server-Sent Events (SSE) for market-specific streams, wallet tracking, trader classification (insider/whale/smart money), and global trade feeds.
+
+    **Note:** These endpoints are served by the Stream service (separate from the main API).
+
+servers:
+  - url: https://ws.klarity.trade/stream
+    description: Production Stream (GCE)
+  - url: http://localhost:8080
+    description: Local Development (Stream service)
+
+paths:
+  /health:
+    get:
+      operationId: streamHealthCheck
+      summary: Stream Service Health Check
+      description: Check the health status of the Stream service.
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /trades/enrich:
+    post:
+      operationId: enrichTrade
+      summary: Enrich Trade Data
+      description: |
+        Enrich raw trade data with classification and trader statistics.
+
+        Used internally to classify trades as whale/smart money/insider and broadcast to subscribers.
+      tags:
+        - Core
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradeEnrichmentRequest'
+      responses:
+        '200':
+          description: Trade successfully enriched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrichedTrade'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /markets/{slug}/stream:
+    get:
+      operationId: getMarketStream
+      summary: Market Trade Stream
+      description: |
+        Server-Sent Events (SSE) stream of all trades in a specific market.
+
+        Streams real-time trades as they occur, with enriched trader classification (whale/insider/smart money).
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Markets
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Market slug (e.g., "will-trump-win-2024")
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache, no-transform]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/MarketStreamEvent'
+        '400':
+          description: Invalid slug parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Market not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /wallets/stream-ticket:
+    post:
+      operationId: createStreamTicket
+      summary: Create SSE Stream Ticket
+      description: |
+        Exchange a valid JWT for a single-use, short-lived ticket that authenticates
+        an SSE stream connection.
+
+        **Why:** The browser `EventSource` API cannot send cookies or custom headers on
+        cross-origin requests. This endpoint lets the client obtain a ticket while
+        authenticated, then pass it as a query parameter on the SSE URL.
+
+        **Ticket properties:**
+        - Cryptographically random (256-bit)
+        - Tied to the authenticated user's ID
+        - Single-use (consumed on first SSE connection)
+        - Expires after 30 seconds
+
+        **Usage flow:**
+        1. `POST /wallets/stream-ticket` with `klarity_access_token` cookie/header
+        2. Receive `{ "ticket": "abc123..." }`
+        3. Open `EventSource('/wallets/stream?ticket=abc123...')`
+      tags:
+        - Auth
+      security:
+        - jwtCookie: []
+      responses:
+        '200':
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticket:
+                    type: string
+                    description: Single-use ticket for SSE stream authentication (expires in 30s)
+                    example: JkcrecSuaoqvtMqfzP37RxPNho-lTJWEeMNEQ59-qUA
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /wallets/subscribe:
+    post:
+      operationId: subscribeWallet
+      summary: Subscribe to Wallet
+      description: |
+        Subscribe the authenticated user to trade updates from a specific wallet.
+
+        Optionally provide metadata (color, icon, alias) that will be updated if the wallet is already subscribed (upsert behavior).
+
+        Requires `klarity_access_token` cookie or header. User ID is extracted from the JWT `sub` claim.
+      tags:
+        - Wallet Tracker
+      security:
+        - jwtCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wallet:
+                  type: string
+                  pattern: '^0x[a-fA-F0-9]{40}$'
+                  description: Ethereum wallet address
+                color:
+                  type: string
+                  pattern: '^#[0-9a-fA-F]{6}$'
+                  description: Hex color code (e.g., "#FF5733") for wallet visualization
+                icon:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_-]+$'
+                  maxLength: 50
+                  description: Icon identifier (alphanumeric, underscores, hyphens; max 50 chars)
+                alias:
+                  type: string
+                  maxLength: 100
+                  description: Custom wallet nickname/alias (max 100 chars)
+              required:
+                - wallet
+      responses:
+        '200':
+          description: Successfully subscribed to wallet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  wallet:
+                    type: string
+        '400':
+          description: Invalid wallet address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Subscription failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /wallets/unsubscribe:
+    post:
+      operationId: unsubscribeWallet
+      summary: Unsubscribe from Wallet
+      description: |
+        Unsubscribe the authenticated user from trade updates of a specific wallet.
+
+        Requires `klarity_access_token` cookie or header. User ID is extracted from the JWT `sub` claim.
+      tags:
+        - Wallet Tracker
+      security:
+        - jwtCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wallet:
+                  type: string
+                  pattern: '^0x[a-fA-F0-9]{40}$'
+                  description: Ethereum wallet address
+              required:
+                - wallet
+      responses:
+        '200':
+          description: Successfully unsubscribed from wallet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  wallet:
+                    type: string
+        '400':
+          description: Invalid wallet address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Unsubscription failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /wallets/tracked:
+    get:
+      operationId: getTrackedWallets
+      summary: List Tracked Wallets
+      description: |
+        Get all wallets the authenticated user is currently tracking with metadata.
+
+        Requires `klarity_access_token` cookie or header. User ID is extracted from the JWT `sub` claim.
+      tags:
+        - Wallet Tracker
+      security:
+        - jwtCookie: []
+      responses:
+        '200':
+          description: List of tracked wallets with metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TrackedWallet'
+                  count:
+                    type: integer
+        '401':
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to retrieve tracked wallets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /wallets/stream:
+    get:
+      operationId: getWalletTrackerStream
+      summary: Wallet Tracker Stream
+      description: |
+        Server-Sent Events (SSE) stream of trade updates for all wallets the user is tracking.
+
+        Sends real-time trade events for subscribed wallets, with enriched trader classification.
+        Trade events include enrichment fields (`id`, `eventSlug`, `tags`, `side` in uppercase).
+
+        **On connect:**
+        1. Receives `system/connected` event with tracked wallet list
+        2. Recent trades sent as individual `event: trade` messages (backfill)
+        3. Live `trade` events as they occur
+
+        **Authentication:** Uses a single-use ticket instead of cookies/headers (because the browser
+        `EventSource` API cannot send custom headers). Obtain a ticket first via `POST /wallets/stream-ticket`,
+        then pass it as the `ticket` query parameter.
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Wallet Tracker
+      parameters:
+        - name: ticket
+          in: query
+          required: true
+          schema:
+            type: string
+          description: |
+            Single-use authentication ticket from `POST /wallets/stream-ticket`.
+            Expires after 30 seconds and is consumed on first use.
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/WalletTrackerEvent'
+        '401':
+          description: Missing, invalid, or expired ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to initialize stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /wallets/stats:
+    get:
+      operationId: getWalletTrackerStats
+      summary: Wallet Tracker Debug Stats
+      description: Get debug statistics for the wallet tracker (tracked wallets, connected clients).
+      tags:
+        - Wallet Tracker
+      responses:
+        '200':
+          description: Tracker statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - trackedWallets
+                  - connectedClients
+                  - isConnected
+                properties:
+                  trackedWallets:
+                    type: integer
+                    description: Number of wallets currently being tracked via WebSocket
+                  connectedClients:
+                    type: integer
+                    description: Number of connected SSE clients
+                  isConnected:
+                    type: boolean
+                    description: Whether any wallets are being tracked
+
+  /insider-tracker/stream:
+    get:
+      operationId: getInsiderTrackerStream
+      summary: Insider Tracker Stream (Authenticated)
+      description: |
+        Server-Sent Events (SSE) stream of insider account alerts with user-configurable thresholds.
+
+        Requires `x-user-id` header for user-specific configuration. Streams alerts for accounts detected as insiders based on:
+        - Position size (minimum notional, configurable, default $10,000, floor $1,000)
+        - Market exposure (max unique markets, configurable, default 5, ceiling 20)
+        - Account age (max hours old, configurable, default disabled, ceiling 48h)
+
+        **SSE event types:**
+        - `event: system` — connection/config messages (`{ type: 'connected', config }` or `{ type: 'config_updated', config }`)
+        - `event: trade` — insider trade alert (`TradeAlertEvent` object). Both live and backfilled trades use this same event type.
+        - `: heartbeat` — SSE comment keepalive every 15 seconds
+
+        **Query parameters:**
+        - `since`: ISO 8601 timestamp — on connect, historical trades since this time are sent as individual `event: trade` messages before live streaming begins
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Insider Tracker
+      parameters:
+        - name: x-user-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: User ID (defaults to "anonymous" if not provided)
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for historical backfill
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/InsiderTrackerEvent'
+        '400':
+          description: Invalid since timestamp
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to initialize stream
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /insider-tracker/public/stream:
+    get:
+      operationId: getInsiderTrackerPublicStream
+      summary: Insider Tracker Stream (Public)
+      description: |
+        Public Server-Sent Events (SSE) stream of insider account alerts with fixed thresholds.
+
+        No authentication required. Uses fixed configuration:
+        - Position size: $10,000 minimum notional
+        - Market exposure: 5 unique markets max
+        - Account age: no filter (any age)
+
+        **SSE event types:** Same as authenticated stream (`system`, `trade`, heartbeat comments). No backfill support.
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Insider Tracker
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/InsiderTrackerEvent'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /insider-tracker/config:
+    get:
+      operationId: getInsiderTrackerConfig
+      summary: Get Insider Tracker Configuration
+      description: |
+        Get the current insider alert configuration for the authenticated user.
+
+        Returns the user's configured thresholds and the allowed ranges (constraints).
+      tags:
+        - Insider Tracker
+      parameters:
+        - name: x-user-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: User ID (defaults to "anonymous" if not provided)
+      responses:
+        '200':
+          description: User configuration and constraints
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    $ref: '#/components/schemas/InsiderConfig'
+                  constraints:
+                    $ref: '#/components/schemas/InsiderConfigConstraints'
+        '500':
+          description: Failed to retrieve config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      operationId: updateInsiderTrackerConfig
+      summary: Update Insider Tracker Configuration
+      description: |
+        Update the insider alert configuration for the authenticated user.
+
+        Requires `x-user-id` header. All fields are optional; only provide fields to update.
+
+        **Validation (server-enforced constraints):**
+        - notionalMin: must be at least $1,000 (values below are rejected)
+        - uniqueMarketsMax: 1–20 (ceiling 20)
+        - maxAccountAgeHours: 1–48 hours, or null for unlimited (ceiling 48)
+      tags:
+        - Insider Tracker
+      parameters:
+        - name: x-user-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: User ID (defaults to "anonymous" if not provided)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notionalMin:
+                  type: number
+                  minimum: 1000
+                  description: Minimum position notional in USD (floor $1,000)
+                uniqueMarketsMax:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  description: Maximum unique markets the insider can be in (ceiling 20)
+                maxAccountAgeHours:
+                  type: integer
+                  nullable: true
+                  minimum: 1
+                  maximum: 48
+                  description: Maximum account age in hours, or null for unlimited (ceiling 48)
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  config:
+                    $ref: '#/components/schemas/InsiderConfig'
+        '400':
+          description: Invalid configuration values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to update config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /insider-tracker/stats:
+    get:
+      operationId: getInsiderTrackerStats
+      summary: Insider Tracker Debug Stats
+      description: Get debug statistics for the insider tracker (connected clients, ClickHouse trade stats).
+      tags:
+        - Insider Tracker
+      responses:
+        '200':
+          description: Tracker statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - connectedClients
+                  - publicClients
+                  - clickhouseEnabled
+                  - tradeCount
+                  - oldestTimestamp
+                  - newestTimestamp
+                properties:
+                  connectedClients:
+                    type: integer
+                    description: Number of authenticated SSE clients
+                  publicClients:
+                    type: integer
+                    description: Number of public SSE clients
+                  clickhouseEnabled:
+                    type: boolean
+                    description: Whether ClickHouse persistence is enabled
+                  tradeCount:
+                    type: integer
+                    nullable: true
+                    description: Total insider trades in ClickHouse (null if CH disabled)
+                  oldestTimestamp:
+                    type: string
+                    nullable: true
+                    description: Oldest trade timestamp in ClickHouse
+                  newestTimestamp:
+                    type: string
+                    nullable: true
+                    description: Newest trade timestamp in ClickHouse
+
+  /smart-money/public/stream:
+    get:
+      operationId: getSmartMoneyStream
+      summary: Smart Money Tracker Stream (Public)
+      description: |
+        Public Server-Sent Events (SSE) stream of trades from "smart money" wallets.
+
+        No authentication required. Streams trades from wallets identified as "smart money" based on fixed criteria:
+        - $50,000+ realized PnL
+        - 60%+ win rate
+        - 10+ markets traded
+
+        **SSE event types:**
+        - `event: system` — connection messages (`{ type: 'connected', config }`)
+        - `event: trade` — smart money trade alert (`TradeAlertEvent` object). Both live and backfilled trades use this same event type.
+        - `: heartbeat` — SSE comment keepalive every 15 seconds
+
+        **Query parameters:**
+        - `since`: ISO 8601 timestamp — on connect, historical trades since this time are sent as individual `event: trade` messages before live streaming begins
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Smart Money Tracker
+      parameters:
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for historical backfill
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SmartMoneyStreamEvent'
+        '400':
+          description: Invalid since timestamp
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /smart-money/stats:
+    get:
+      operationId: getSmartMoneyStats
+      summary: Smart Money Tracker Debug Stats
+      description: Get debug statistics for the smart money tracker (connected clients, config thresholds).
+      tags:
+        - Smart Money Tracker
+      responses:
+        '200':
+          description: Tracker statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - connectedClients
+                  - config
+                  - clickhouseEnabled
+                  - tradeCount
+                properties:
+                  connectedClients:
+                    type: integer
+                    description: Number of connected SSE clients
+                  clickhouseEnabled:
+                    type: boolean
+                    description: Whether ClickHouse persistence is enabled
+                  tradeCount:
+                    type: integer
+                    nullable: true
+                    description: Total smart money trades in ClickHouse (null if CH disabled)
+                  config:
+                    type: object
+                    description: Active smart money classification thresholds
+                    required:
+                      - minRealizedPnlUsd
+                      - minWinRate
+                      - minMarketsTraded
+                      - notionalMin
+                    properties:
+                      minRealizedPnlUsd:
+                        type: number
+                        description: Minimum realized PnL in USD to qualify as smart money
+                      minWinRate:
+                        type: number
+                        description: Minimum win rate (0-1) to qualify as smart money
+                      minMarketsTraded:
+                        type: integer
+                        description: Minimum number of markets traded
+                      notionalMin:
+                        type: number
+                        description: Minimum trade notional in USD
+
+  /trades/stream:
+    get:
+      operationId: getGlobalTradeStream
+      summary: Global Trade Stream (Public)
+      description: |
+        Public Server-Sent Events (SSE) stream of all enriched Polymarket trades above $100 notional.
+
+        No authentication required. Streams all trades with enriched trader classification (whale/insider/smart money), market metadata, and trader statistics.
+
+        **On connect:**
+        1. Receives `system/connected` event
+        2. Up to 50 recent trades sent as individual `event: trade` messages (backfill)
+        3. Live `trade` events as they occur
+        - Real-time enrichment: trader stats and market metadata calculated on every trade
+        - Market tags: events categorized with lowercase tag slugs (crypto, sports, etc.)
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Global Trade Stream
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/GlobalTradeStreamEvent'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /trades/stats:
+    get:
+      operationId: getGlobalTradeStats
+      summary: Global Trade Stream Debug Stats
+      description: Get debug statistics for the global trade stream (connected clients, notional config).
+      tags:
+        - Global Trade Stream
+      responses:
+        '200':
+          description: Stream statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - connectedClients
+                  - config
+                properties:
+                  connectedClients:
+                    type: integer
+                    description: Number of connected SSE clients
+                  config:
+                    type: object
+                    description: Active global trade stream configuration
+                    required:
+                      - notionalMin
+                    properties:
+                      notionalMin:
+                        type: number
+                        description: Minimum trade notional in USD to broadcast
+
+  /alert-rules:
+    post:
+      operationId: createAlertRule
+      summary: Create Alert Rule
+      description: |
+        Create a new alert rule for the authenticated user.
+
+        Supports multiple alert types with configurable conditions:
+        - `whale_trade` - Large notional trades (minNotionalUsd threshold)
+        - `insider_activity` - New wallets with large positions
+        - `smart_money` - High win rate wallets
+        - `wallet_activity` - Tracked wallet activity
+        - `price_threshold` - Price crossing thresholds (priceThreshold)
+        - `volume_spike` - Volume surge (volumeMultiplier)
+        - `holder_delta` - Holder balance changes (holderDeltaMin)
+
+        Delivery can be webhook (requires webhookUrl + optional webhookSecret) or SSE.
+
+        Cooldown period (cooldownMinutes) prevents alert spam.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleRequest'
+      responses:
+        '201':
+          description: Alert rule created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rule:
+                    $ref: '#/components/schemas/AlertRule'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid rule configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      operationId: listAlertRules
+      summary: List User Alert Rules
+      description: Get all alert rules for the authenticated user.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      responses:
+        '200':
+          description: List of alert rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertRule'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to retrieve rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /alert-rules/{ruleId}:
+    get:
+      operationId: getAlertRule
+      summary: Get Alert Rule
+      description: Retrieve a single alert rule by ID. Ownership is enforced — only the rule creator can access it.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Alert rule ID
+      responses:
+        '200':
+          description: Alert rule details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rule:
+                    $ref: '#/components/schemas/AlertRule'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      operationId: updateAlertRule
+      summary: Update Alert Rule
+      description: Update an existing alert rule (all fields optional). Ownership is enforced.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Alert rule ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleUpdate'
+      responses:
+        '200':
+          description: Rule updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rule:
+                    $ref: '#/components/schemas/AlertRule'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Invalid update data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      operationId: deleteAlertRule
+      summary: Delete Alert Rule
+      description: Delete an alert rule by ID. Ownership is enforced.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Alert rule ID
+      responses:
+        '204':
+          description: Rule deleted successfully
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /alert-rules/{ruleId}/history:
+    get:
+      operationId: getAlertRuleHistory
+      summary: Get Alert Delivery History
+      description: Get delivery history for an alert rule from ClickHouse. Ownership is enforced.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Alert rule ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 1000
+          description: Number of delivery records to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Offset for pagination
+      responses:
+        '200':
+          description: Delivery history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertDeliveryLogEntry'
+                  total:
+                    type: integer
+                    description: Total number of delivery records for this rule
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /alert-rules/stats:
+    get:
+      operationId: getAlertStats
+      summary: Get Alert System Statistics
+      description: |
+        Get global alert system statistics. This endpoint does not require authentication —
+        it returns system-wide stats (active rules loaded in engine, connected SSE clients).
+      tags:
+        - Alerts
+      responses:
+        '200':
+          description: Alert system statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activeRules:
+                    type: integer
+                    description: Number of rules currently loaded in the evaluation engine
+                  sseClients:
+                    type: integer
+                    description: Number of connected SSE alert clients
+
+  /alert-rules/{ruleId}/test:
+    post:
+      operationId: testAlertRule
+      summary: Test Alert Rule
+      description: |
+        Perform a dry-run test of an alert rule. For trade-based rules (whale_trade,
+        insider_activity, smart_money, wallet_activity), returns the rule's engine status.
+        For metric-based rules (price_threshold, volume_spike, holder_delta), evaluates
+        current market state from ClickHouse. Ownership is enforced.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Alert rule ID
+      responses:
+        '200':
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertTestResult'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /alerts/stream:
+    get:
+      operationId: getAlertStream
+      summary: Alert Stream
+      description: |
+        Server-Sent Events (SSE) stream of real-time alerts for the authenticated user's rules.
+
+        Requires JWT authentication via `klarity_access_token` cookie or custom header.
+
+        On connection, a `connected` event is sent with `{ clientId, userId }`.
+        When an alert fires, an `alert` event is sent with the alert payload.
+        Keepalive comments are sent periodically to maintain the connection.
+
+        **Connection limits:** Per-IP SSE connection limit enforced.
+      tags:
+        - Alerts
+      security:
+        - jwtCookie: []
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/AlertStreamEvent'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /top-trader-signals/stream:
+    get:
+      operationId: getTopTraderSignalsStream
+      summary: Top Trader Signals Stream
+      description: |
+        Server-Sent Events (SSE) stream of trading signals from tracked top traders.
+
+        No authentication required. Streams real-time signals based on activities of top-performing traders, with optional backfill of historical signals.
+
+        **Aliases:** This endpoint is also available at `/copy-trading/stream` for backwards compatibility.
+
+        **Query parameters:**
+        - `minScore` - Minimum signal score (0-100, default 50)
+        - `since` - ISO 8601 timestamp for historical backfill (optional)
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      tags:
+        - Top Trader Signals
+      parameters:
+        - name: minScore
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+            default: 50
+          description: Minimum signal confidence score (0-100)
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for historical backfill
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/CopyTradingStreamEvent'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /top-trader-signals/traders:
+    get:
+      operationId: listTopTraders
+      summary: List Top Traders
+      description: "Get list of top traders currently being tracked. Alias: `/copy-trading/traders`."
+      tags:
+        - Top Trader Signals
+      responses:
+        '200':
+          description: List of top traders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trader'
+                  count:
+                    type: integer
+                  lastRefresh:
+                    type: string
+                    format: date-time
+
+  /top-trader-signals/traders/{address}:
+    get:
+      operationId: getTraderDetail
+      summary: Get Trader Details
+      description: "Get detailed information about a trader including signal history and performance metrics. Alias: `/copy-trading/traders/{address}`."
+      tags:
+        - Top Trader Signals
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{40}$'
+          description: Trader wallet address
+      responses:
+        '200':
+          description: Trader details with signal history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trader:
+                    $ref: '#/components/schemas/Trader'
+                  signals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CopyTradingSignal'
+        '404':
+          description: Trader not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /top-trader-signals/stats:
+    get:
+      operationId: getTopTraderSignalsStats
+      summary: Top Trader Signals Statistics
+      description: "Get system-wide statistics (tracked traders, active clients, signal volume). Alias: `/copy-trading/stats`."
+      tags:
+        - Top Trader Signals
+      responses:
+        '200':
+          description: Copy trading statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trackedTraders:
+                    type: integer
+                  activeClients:
+                    type: integer
+                  totalSignals24h:
+                    type: integer
+
+  /copy-trading/stream:
+    get:
+      operationId: getCopyTradingStream
+      summary: Copy Trading Signals Stream (Legacy)
+      description: |
+        Deprecated: Use `/top-trader-signals/stream` instead.
+
+        Server-Sent Events (SSE) stream of trading signals from tracked top traders.
+        This is a legacy alias for `/top-trader-signals/stream`.
+
+        **Query parameters:**
+        - `minScore` - Minimum signal score (0-100, default 50)
+        - `since` - ISO 8601 timestamp for historical backfill (optional)
+
+        **Connection limits:** Per-IP rate limit of 10 concurrent connections.
+      deprecated: true
+      tags:
+        - Top Trader Signals
+      parameters:
+        - name: minScore
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+            default: 50
+          description: Minimum signal confidence score (0-100)
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for historical backfill
+      responses:
+        '200':
+          description: SSE stream opened successfully
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/CopyTradingStreamEvent'
+        '429':
+          description: Per-IP connection limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /copy-trading/traders:
+    get:
+      operationId: listTopTradersLegacy
+      summary: List Top Traders (Legacy)
+      description: Deprecated - Use `/top-trader-signals/traders` instead. Get list of top traders currently being tracked.
+      deprecated: true
+      tags:
+        - Top Trader Signals
+      responses:
+        '200':
+          description: List of top traders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  traders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trader'
+                  count:
+                    type: integer
+                  lastRefresh:
+                    type: string
+                    format: date-time
+
+  /copy-trading/traders/{address}:
+    get:
+      operationId: getTraderDetailLegacy
+      summary: Get Trader Details (Legacy)
+      description: Deprecated - Use `/top-trader-signals/traders/{address}` instead. Get detailed information about a trader.
+      deprecated: true
+      tags:
+        - Top Trader Signals
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{40}$'
+          description: Trader wallet address
+      responses:
+        '200':
+          description: Trader details with signal history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trader:
+                    $ref: '#/components/schemas/Trader'
+                  signals:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CopyTradingSignal'
+        '404':
+          description: Trader not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /copy-trading/stats:
+    get:
+      operationId: getCopyTradingStatsLegacy
+      summary: Copy Trading System Statistics (Legacy)
+      description: Deprecated - Use `/top-trader-signals/stats` instead. Get system-wide statistics.
+      deprecated: true
+      tags:
+        - Top Trader Signals
+      responses:
+        '200':
+          description: Copy trading statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trackedTraders:
+                    type: integer
+                  activeClients:
+                    type: integer
+                  totalSignals24h:
+                    type: integer
+
+components:
+  securitySchemes:
+    jwtCookie:
+      type: apiKey
+      in: cookie
+      name: klarity_access_token
+      description: |
+        JWT access token passed as a cookie. The Next.js frontend sets the `klarity_access_token`
+        cookie on login, and it is automatically forwarded on same-origin requests.
+
+        Alternatively, the token can be sent as a custom `klarity_access_token` header
+        (useful for server-to-server calls from Next.js API routes).
+
+        The JWT must be signed with HS256 using the shared secret. The `sub` claim
+        contains the user ID.
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: array
+          description: Detailed error information
+          items:
+            type: object
+        traceId:
+          type: string
+          description: Request trace ID for debugging
+
+    TradeEnrichmentRequest:
+      type: object
+      properties:
+        tradeId:
+          type: string
+          description: Unique trade identifier
+        wallet:
+          type: string
+          description: Trader wallet address
+        conditionId:
+          type: string
+          description: Polymarket condition ID
+        size:
+          type: number
+          description: Trade size in shares
+        executionPriceUsd:
+          type: number
+          nullable: true
+          description: Execution price in USD (optional)
+        timestamp:
+          type: string
+          format: date-time
+          description: Trade timestamp (optional)
+      required:
+        - tradeId
+        - wallet
+        - conditionId
+        - size
+
+    EnrichedTrade:
+      type: object
+      properties:
+        tradeId:
+          type: string
+        wallet:
+          type: string
+        conditionId:
+          type: string
+        size:
+          type: number
+        executionPriceUsd:
+          type: number
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        classification:
+          type: string
+          enum: [whale, insider, smart_money, regular]
+        walletStats:
+          $ref: '#/components/schemas/WalletStats'
+
+    WalletStats:
+      type: object
+      properties:
+        totalPnlUsd:
+          type: number
+          description: Total realized PnL in USD
+        totalPortfolioUsd:
+          type: number
+          description: Total portfolio value
+        winRate:
+          type: number
+          description: Win rate percentage (0-100)
+        closedPositions:
+          type: integer
+          description: Total closed positions
+        accountAgeHours:
+          type: integer
+          description: Account age in hours
+
+    GlobalTradeEvent:
+      description: Alias for TradeAlertEvent - unified trade event schema used across all SSE streams
+      $ref: '#/components/schemas/TradeAlertEvent'
+
+    MarketStreamEvent:
+      type: object
+      description: SSE stream event for market trades
+      properties:
+        event:
+          type: string
+          enum: [init, trade, keepalive]
+        data:
+          oneOf:
+            - type: object
+              properties:
+                connected:
+                  type: boolean
+            - $ref: '#/components/schemas/EnrichedTrade'
+
+    TrackedWallet:
+      type: object
+      description: Tracked wallet with optional metadata
+      properties:
+        wallet:
+          type: string
+          description: Ethereum wallet address (0x-prefixed hex)
+        color:
+          type: string
+          nullable: true
+          description: Hex color code (e.g., "#FF5733") or null if not set
+        icon:
+          type: string
+          nullable: true
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Icon identifier (alphanumeric, underscores, hyphens), or null if not set
+        alias:
+          type: string
+          nullable: true
+          description: Custom wallet nickname/alias, or null if not set
+
+    WalletTradeEvent:
+      type: object
+      description: Trade event from wallet tracker stream. Same as TradeAlertEvent but includes wallet metadata (alias, color, icon).
+      allOf:
+        - $ref: '#/components/schemas/TradeAlertEvent'
+        - type: object
+          properties:
+            alias:
+              type: string
+              nullable: true
+              description: User-assigned wallet nickname
+            color:
+              type: string
+              nullable: true
+              description: User-assigned hex color code (e.g., "#FF5733")
+            icon:
+              type: string
+              nullable: true
+              description: User-assigned icon identifier (alphanumeric, underscores, hyphens)
+
+    WalletTrackerEvent:
+      description: |
+        SSE stream events for wallet tracker. Both live and backfilled trades use `event: trade`.
+      oneOf:
+        - type: object
+          description: "System event (`event: system`)"
+          properties:
+            event:
+              type: string
+              enum: [system]
+            data:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [connected, subscribed, unsubscribed, error]
+                wallets:
+                  type: array
+                  items:
+                    type: string
+        - type: object
+          description: "Trade event (`event: trade`) — used for both live and backfilled trades"
+          properties:
+            event:
+              type: string
+              enum: [trade]
+            data:
+              $ref: '#/components/schemas/TradeAlertEvent'
+
+    InsiderTrackerEvent:
+      description: |
+        SSE stream events for insider tracker. Events are sent as standard SSE with `event:` and `data:` fields.
+        Both live and backfilled trades use the same `event: trade` format.
+      oneOf:
+        - type: object
+          description: "System event (`event: system`)"
+          properties:
+            event:
+              type: string
+              enum: [system]
+            data:
+              $ref: '#/components/schemas/InsiderTrackerSystemMessage'
+        - type: object
+          description: "Trade event (`event: trade`) — used for both live and backfilled trades"
+          properties:
+            event:
+              type: string
+              enum: [trade]
+            data:
+              $ref: '#/components/schemas/TradeAlertEvent'
+
+    InsiderTrackerSystemMessage:
+      type: object
+      description: System messages sent over SSE (connection, config updates, errors)
+      properties:
+        type:
+          type: string
+          enum: [connected, config_updated, error]
+        config:
+          $ref: '#/components/schemas/InsiderConfig'
+        message:
+          type: string
+          description: Error message (only present when type is "error")
+
+    TradeAlertEvent:
+      type: object
+      description: Unified trade alert event emitted by all SSE streams (insider, smart money, global trade, wallet tracker)
+      required:
+        - id
+        - timestamp
+        - wallet
+        - notionalUsd
+        - size
+        - price
+        - marketsTraded
+        - totalRealizedPnlUsd
+        - portfolioValueUsd
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique trade identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: Trade execution timestamp
+        wallet:
+          type: string
+          description: Trader wallet address
+        notionalUsd:
+          type: number
+          description: Trade notional value in USD (size * price)
+        size:
+          type: number
+          description: Number of shares traded
+        price:
+          type: number
+          description: Price per share (0-1 range)
+        side:
+          type: string
+          nullable: true
+          enum: [BUY, SELL]
+          description: Trade side (null if unknown)
+        outcome:
+          type: string
+          nullable: true
+          description: Outcome name (Yes/No/etc)
+        marketSlug:
+          type: string
+          nullable: true
+          description: Market slug (e.g., "will-trump-win-2024")
+        eventSlug:
+          type: string
+          nullable: true
+          description: Event slug
+        marketTitle:
+          type: string
+          nullable: true
+          description: Market title
+        marketImage:
+          type: string
+          nullable: true
+          description: Market image URL
+        marketId:
+          type: string
+          nullable: true
+          description: Polymarket condition/market ID (null for most streams)
+        tokenId:
+          type: string
+          nullable: true
+          description: Polymarket CLOB asset token ID
+        txHash:
+          type: string
+          nullable: true
+          description: Transaction hash from RTDS (null if not present in message)
+        tags:
+          type: array
+          items:
+            type: string
+          description: Array of lowercase tag slugs (e.g., ["crypto", "bitcoin", "politics"])
+        marketsTraded:
+          type: integer
+          description: Number of unique markets the trader has participated in
+        ageHours:
+          type: number
+          nullable: true
+          description: Account age in hours since creation
+        winRate:
+          type: number
+          nullable: true
+          description: Trader's win rate (0-1 range)
+        totalRealizedPnlUsd:
+          type: number
+          description: Trader's total realized PnL in USD
+        portfolioValueUsd:
+          type: number
+          description: Trader's current portfolio value in USD
+        isWhale:
+          type: boolean
+          description: Whether trader is classified as a whale
+        isSmartMoney:
+          type: boolean
+          description: Whether trader is classified as smart money
+        isInsider:
+          type: boolean
+          description: Whether trader is classified as an insider
+        traderName:
+          type: string
+          nullable: true
+          description: Trader display name (from Polymarket profile)
+        profileImage:
+          type: string
+          nullable: true
+          description: Profile image URL
+        bidLiquidityUsd:
+          type: number
+          nullable: true
+          description: Bid-side liquidity in USD (whale trades only)
+        askLiquidityUsd:
+          type: number
+          nullable: true
+          description: Ask-side liquidity in USD (whale trades only)
+        spreadPct:
+          type: number
+          nullable: true
+          description: Spread percentage (whale trades only)
+
+    InsiderConfig:
+      type: object
+      properties:
+        notionalMin:
+          type: number
+          description: Minimum position notional in USD (default $10,000, floor $1,000)
+        uniqueMarketsMax:
+          type: integer
+          description: Maximum unique markets (default 5, ceiling 20)
+        maxAccountAgeHours:
+          type: integer
+          nullable: true
+          description: Maximum account age in hours, or null for unlimited (default null, ceiling 48)
+
+    InsiderConfigConstraints:
+      type: object
+      properties:
+        notionalMin:
+          type: object
+          properties:
+            floor:
+              type: number
+              example: 1000
+        uniqueMarketsMax:
+          type: object
+          properties:
+            ceiling:
+              type: integer
+              example: 20
+        maxAccountAgeHours:
+          type: object
+          properties:
+            ceiling:
+              type: integer
+              example: 48
+
+    SmartMoneyStreamEvent:
+      description: |
+        SSE stream events for smart money tracker. Events are sent as standard SSE with `event:` and `data:` fields.
+        Both live and backfilled trades use the same `event: trade` format.
+      oneOf:
+        - type: object
+          description: "System event (`event: system`)"
+          properties:
+            event:
+              type: string
+              enum: [system]
+            data:
+              $ref: '#/components/schemas/SmartMoneySystemMessage'
+        - type: object
+          description: "Trade event (`event: trade`) — used for both live and backfilled trades"
+          properties:
+            event:
+              type: string
+              enum: [trade]
+            data:
+              $ref: '#/components/schemas/TradeAlertEvent'
+
+    SmartMoneySystemMessage:
+      type: object
+      description: System messages sent over SSE (connection messages)
+      properties:
+        type:
+          type: string
+          enum: [connected]
+        config:
+          $ref: '#/components/schemas/SmartMoneyConfig'
+
+    SmartMoneyConfig:
+      type: object
+      description: Smart money classification thresholds
+      required:
+        - minRealizedPnlUsd
+        - minWinRate
+        - minMarketsTraded
+      properties:
+        minRealizedPnlUsd:
+          type: number
+          description: Minimum realized PnL in USD to qualify as smart money
+        minWinRate:
+          type: number
+          description: Minimum win rate (0-1) to qualify as smart money
+        minMarketsTraded:
+          type: integer
+          description: Minimum number of markets traded
+
+    TradeStreamEvent:
+      type: object
+      description: SSE stream event for trades
+      properties:
+        event:
+          type: string
+          enum: [connected, trade, keepalive]
+        data:
+          oneOf:
+            - type: object
+              properties:
+                connected:
+                  type: boolean
+            - $ref: '#/components/schemas/EnrichedTrade'
+
+    GlobalTradeStreamEvent:
+      description: |
+        SSE stream events for global trades. Both live and backfilled trades use `event: trade`.
+      oneOf:
+        - type: object
+          description: "System event (`event: system`)"
+          properties:
+            event:
+              type: string
+              enum: [system]
+            data:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [connected]
+                config:
+                  type: object
+                  properties:
+                    notionalMin:
+                      type: number
+        - type: object
+          description: "Trade event (`event: trade`) — used for both live and backfilled trades"
+          properties:
+            event:
+              type: string
+              enum: [trade]
+            data:
+              $ref: '#/components/schemas/TradeAlertEvent'
+
+    AlertRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          description: Human-readable alert rule name
+        type:
+          type: string
+          enum:
+            [
+              whale_trade,
+              insider_activity,
+              smart_money,
+              wallet_activity,
+              price_threshold,
+              volume_spike,
+              holder_delta,
+            ]
+          description: Alert rule type
+        enabled:
+          type: boolean
+          description: Whether the rule is active
+        marketSlugs:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Optional market slugs to filter on
+        walletAddresses:
+          type: array
+          items:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{40}$'
+          nullable: true
+          description: Optional wallet addresses for wallet_activity alerts
+        condition:
+          type: object
+          properties:
+            minNotionalUsd:
+              type: number
+              nullable: true
+            priceDirection:
+              type: string
+              enum: [up, down]
+              nullable: true
+            priceThreshold:
+              type: number
+              nullable: true
+            volumeMultiplier:
+              type: number
+              nullable: true
+              minimum: 1
+            holderDeltaMin:
+              type: number
+              nullable: true
+            windowMinutes:
+              type: integer
+              nullable: true
+            holderType:
+              type: string
+              enum: [whale, insider, smart_money]
+              nullable: true
+          description: Condition parameters for rule evaluation
+        delivery:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [webhook, sse]
+              description: Delivery method
+            webhookUrl:
+              type: string
+              format: uri
+              nullable: true
+              description: Webhook URL for POST delivery
+            webhookSecret:
+              type: string
+              nullable: true
+              description: Optional secret for HMAC webhook signing
+          required:
+            - type
+          description: Delivery configuration
+        cooldownMinutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+          description: Minimum minutes between successive alerts
+      required:
+        - name
+        - type
+        - enabled
+        - condition
+        - delivery
+        - cooldownMinutes
+
+    AlertRuleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        enabled:
+          type: boolean
+        marketSlugs:
+          type: array
+          items:
+            type: string
+          nullable: true
+        walletAddresses:
+          type: array
+          items:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{40}$'
+          nullable: true
+        condition:
+          type: object
+          additionalProperties: true
+        delivery:
+          type: object
+          additionalProperties: true
+        cooldownMinutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+
+    AlertRule:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique rule ID
+        userId:
+          type: string
+          description: User who owns this rule
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            [
+              whale_trade,
+              insider_activity,
+              smart_money,
+              wallet_activity,
+              price_threshold,
+              volume_spike,
+              holder_delta,
+            ]
+        enabled:
+          type: boolean
+        marketSlugs:
+          type: array
+          items:
+            type: string
+          nullable: true
+        walletAddresses:
+          type: array
+          items:
+            type: string
+          nullable: true
+        condition:
+          type: object
+          additionalProperties: true
+        delivery:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [webhook, sse]
+            webhookUrl:
+              type: string
+              nullable: true
+            webhookSecret:
+              type: string
+              nullable: true
+        cooldownMinutes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastFiredAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AlertDelivery:
+      type: object
+      properties:
+        id:
+          type: string
+        ruleId:
+          type: string
+        firedAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [pending, delivered, failed]
+        deliveryType:
+          type: string
+          enum: [webhook, sse]
+        marketSlug:
+          type: string
+          nullable: true
+        currentValue:
+          type: number
+          nullable: true
+
+    AlertDeliveryLogEntry:
+      type: object
+      description: Delivery history entry from ClickHouse alert_delivery_log table
+      properties:
+        id:
+          type: string
+          description: Delivery log entry ID
+        alert_type:
+          type: string
+          description: Alert rule type (snake_case from ClickHouse)
+        delivery_status:
+          type: string
+          description: Delivery outcome
+        delivery_error:
+          type: string
+          nullable: true
+          description: Error message if delivery failed
+        attempts:
+          type: integer
+          description: Number of delivery attempts
+        created_at:
+          type: string
+          description: Timestamp of delivery (ClickHouse DateTime format)
+
+    AlertTestResult:
+      type: object
+      description: |
+        Dry-run test result. Shape varies by rule type.
+        Trade-based rules return engine status; metric-based rules return evaluation results.
+      properties:
+        ruleId:
+          type: string
+        ruleName:
+          type: string
+        type:
+          type: string
+          description: Alert rule type
+        dryRun:
+          type: boolean
+          description: Always true for test results
+        traceId:
+          type: string
+        message:
+          type: string
+          description: Human-readable status message
+        enabled:
+          type: boolean
+          description: Whether the rule is enabled (trade-based rules)
+        loaded:
+          type: boolean
+          description: Whether the rule is loaded in the engine (trade-based rules)
+        condition:
+          type: object
+          description: Rule condition parameters
+          additionalProperties: true
+        delivery:
+          type: object
+          description: Delivery config summary (trade-based rules)
+          properties:
+            type:
+              type: string
+            hasWebhookUrl:
+              type: boolean
+        cooldownMinutes:
+          type: integer
+          description: Cooldown period (trade-based rules)
+        wouldFire:
+          type: boolean
+          description: Whether the rule would fire now (metric-based rules)
+        currentValue:
+          type: number
+          nullable: true
+          description: Current metric value (metric-based rules)
+        threshold:
+          type: number
+          nullable: true
+          description: Configured threshold (metric-based rules)
+        marketSlugs:
+          type: array
+          items:
+            type: string
+          description: Markets that match the condition (metric-based rules)
+
+    AlertStreamEvent:
+      type: object
+      description: SSE stream event for alerts
+      properties:
+        event:
+          type: string
+          enum: [connected, alert, keepalive]
+        data:
+          oneOf:
+            - type: object
+              description: Sent on initial connection
+              properties:
+                clientId:
+                  type: string
+                userId:
+                  type: string
+            - type: object
+              properties:
+                ruleId:
+                  type: string
+                ruleName:
+                  type: string
+                ruleType:
+                  type: string
+                  enum:
+                    [
+                      whale_trade,
+                      insider_activity,
+                      smart_money,
+                      wallet_activity,
+                      price_threshold,
+                      volume_spike,
+                      holder_delta,
+                    ]
+                marketSlug:
+                  type: string
+                  nullable: true
+                currentValue:
+                  type: number
+                  nullable: true
+                triggeredAt:
+                  type: string
+                  format: date-time
+
+    Trader:
+      type: object
+      description: Top trader profile for copy trading
+      properties:
+        address:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+          description: Trader wallet address
+        name:
+          type: string
+          nullable: true
+          description: Trader display name
+        profileImage:
+          type: string
+          nullable: true
+          description: Profile image URL
+        totalPnlUsd:
+          type: number
+          description: Total realized PnL
+        winRate:
+          type: number
+          description: Win rate percentage (0-100)
+        closedPositions:
+          type: integer
+          description: Number of closed positions
+        smartMoneyScore:
+          type: number
+          description: Score for being classified as smart money (0-100)
+        marketsTraded:
+          type: integer
+          description: Number of unique markets traded
+        accountAgeHours:
+          type: integer
+          description: Account age in hours
+        lastTradeAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CopyTradingSignal:
+      type: object
+      description: Trading signal from a top trader
+      properties:
+        id:
+          type: string
+        traderId:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+        marketSlug:
+          type: string
+        marketTitle:
+          type: string
+        side:
+          type: string
+          enum: [BUY, SELL]
+          description: Inferred trade direction
+        notionalUsd:
+          type: number
+          description: Trade size in USD
+        confidence:
+          type: number
+          description: Signal confidence score (0-100)
+        traderWinRateOnMarket:
+          type: number
+          nullable: true
+          description: This trader's historical win rate on similar markets
+        signalAt:
+          type: string
+          format: date-time
+
+    CopyTradingStreamEvent:
+      type: object
+      description: SSE stream event for copy trading signals
+      properties:
+        event:
+          type: string
+          enum: [signal, backfill, keepalive]
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/CopyTradingSignal'
+            - type: object
+              properties:
+                backfillCount:
+                  type: integer

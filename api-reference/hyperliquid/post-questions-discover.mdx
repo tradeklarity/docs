@@ -1,0 +1,294 @@
+---
+title: 'Discover HIP-4 Questions'
+openapi: openapi-hyperliquid.yaml POST /hyperliquid/questions/discover
+description: Cursor-paginated HIP-4 question discovery with deltas, embedded outcomes, and lifecycle stages
+---
+
+Cursor-paginated **question** discovery for Hyperliquid HIP-4. The feed returns unified **cards**:
+- **Real questions:** Group N outcomes via `namedOutcomeIds`; return aggregated volume/trades/holders across all outcomes
+- **Standalone cards:** Single-outcome cards (question-less outcomes) — HL's equivalent of PM binary events
+
+Use `cardId` as the stable list key (`"q:<questionId>"` for questions, `"o:<outcomeId>"` for standalone).
+
+The endpoint returns question-level aggregated volume/trade counts across all outcomes, optional embedded outcome objects (PM-style events-with-markets), per-window deltas (including new `price_movement` metric), threshold conditions (max 10 with AND/OR logic), and lifecycle stage classification.
+
+**Terminology:** In Hyperliquid HIP-4:
+- **Questions** = containers (≈ Polymarket events)
+- **Outcomes** = tradeable binaries (≈ Polymarket markets)
+- **Standalone outcomes** = HL-specific; outcomes with no question wrapper
+
+Backed by `hl_question_discover_serving` — a single-phase query against a
+materialized view refreshed every 5 minutes.
+
+Rate limit: 30 requests/minute.
+
+## Lifecycle Stages
+
+| Stage       | Definition |
+|-------------|-----------|
+| `new`       | First seen within the last 6h (min `first_seen_at` across outcomes) |
+| `building`  | Positive volume momentum (`vol_24h > vol_1h * 1.05`) |
+| `peak`      | High-volume stable (`vol_24h >= $10k`) |
+| `resolving` | Earliest outcome expiry within 1h |
+| `quiet`     | Low activity, no recent change |
+
+## Delta Metrics & Windows
+
+**Metrics:** `volume`, `trades`, `holders_total`, `holders_whale`,
+`holders_smart_money`, `price_movement` (new — odds movement aggregated across the question's outcomes)
+
+**Windows:** `5m`, `15m`, `30m`, `1h`, `4h`, `24h`, `7d`, `30d`
+
+**Compare:** `delta_abs` (absolute change) or `delta_pct` (percent change)
+
+Response delta keys are emitted as `{metric}_{window}` (e.g. `volume_1h`).
+
+**`price_movement` metric:** Aggregates odds volatility across the question's outcomes:
+- `abs`: sum of |yes mid px change|
+- `pct`: average of |yes mid px % change|
+- Available on all 8 windows
+
+## Sort Fields
+
+`volume_24h`, `trades_24h`, `holders_total`, `holders_whale`,
+`holders_smart_money`, `price_movement`, `first_seen_at`
+
+Pass `window` + `compare` on the sort spec to sort by a delta value instead of
+a static column.
+
+## Request Body
+
+<ParamField body="includeOutcomes" type="boolean" default="true">
+  Embed full outcome objects (PM-style events-with-markets) on each card, ordered by `namedOutcomes` order. Embedded outcomes carry no deltas.
+</ParamField>
+
+<ParamField body="includeStandalone" type="boolean" default="true">
+  Include standalone single-outcome cards (outcomes with no question container). Set `false` for questions-only view.
+</ParamField>
+
+<ParamField body="conditions" type="array" default="[]">
+  Array of threshold filter conditions (max 10) — same metric/window/compare addressing as sort, plus `op` (gt|gte|lt|lte|eq) and `value`.
+</ParamField>
+
+<ParamField body="conditionLogic" type="string" default="and">
+  Combine conditions with `and` or `or`
+</ParamField>
+
+## Response Example
+
+Each card in the response has a stable `cardId` key and includes full embedded outcomes by default:
+
+<CodeGroup>
+```json Real Question Card
+{
+  "cardId": "q:42",
+  "questionId": 42,
+  "isStandalone": false,
+  "outcomeId": null,
+  "name": "2026 World Cup Winner",
+  "description": "Which country will win the 2026 FIFA World Cup?",
+  "fallbackOutcome": 128,
+  "isResolved": false,
+  "namedOutcomes": [1, 2, 3, 4, 5],
+  "settledOutcomes": [],
+  "metrics": {
+    "volume_24h": 125000,
+    "trades_24h": 450,
+    "holders_total": 234,
+    "holders_whale": 12,
+    "holders_smart_money": 8
+  },
+  "deltas": {
+    "volume_1h": {"abs": 2500, "pct": 2.1, "status": "ok"},
+    "volume_24h": {"abs": 5000, "pct": 4.2, "status": "ok"},
+    "price_movement_1h": {"abs": 0.08, "pct": 3.5, "status": "ok"}
+  },
+  "stage": "peak",
+  "firstSeenAt": "2026-06-01T10:00:00Z",
+  "lastSyncedAt": "2026-06-14T15:30:45Z",
+  "outcomes": [
+    {
+      "outcomeId": 1,
+      "questionId": 42,
+      "name": "Argentina",
+      "description": "...",
+      "class": "categorical",
+      "underlying": "FIFA2026",
+      "targetPrice": null,
+      "quoteToken": "USDC",
+      "yesMidPx": 0.18,
+      "noMidPx": 0.82,
+      "isResolved": false,
+      "winningSide": null,
+      "metrics": {
+        "volume_24h": 45000,
+        "trades_24h": 180,
+        "holders_total": 89,
+        "holders_yes": 45,
+        "holders_no": 44,
+        "holders_whale": 4,
+        "holders_smart_money": 2
+      },
+      "deltas": {},
+      "stage": "peak",
+      "firstSeenAt": "2026-06-01T10:00:00Z",
+      "lastSyncedAt": "2026-06-14T15:30:45Z"
+    }
+  ]
+}
+```
+
+```json Standalone Outcome Card
+{
+  "cardId": "o:329",
+  "questionId": null,
+  "isStandalone": true,
+  "outcomeId": 329,
+  "name": "BTC above $95k by 7am UTC",
+  "description": "class:priceBinary|underlying:BTC|expiry:2026-06-15T07:00:00Z|targetPrice:95000",
+  "class": "priceBinary",
+  "underlying": "BTC",
+  "targetPrice": 95000,
+  "quoteToken": "USDC",
+  "fallbackOutcome": null,
+  "isResolved": false,
+  "namedOutcomes": [329],
+  "settledOutcomes": [],
+  "metrics": {
+    "volume_24h": 87500,
+    "trades_24h": 320,
+    "holders_total": 156,
+    "holders_whale": 8,
+    "holders_smart_money": 6
+  },
+  "deltas": {
+    "volume_1h": {"abs": 5200, "pct": 6.3, "status": "ok"},
+    "volume_24h": {"abs": -2000, "pct": -2.2, "status": "ok"},
+    "price_movement_1h": {"abs": 0.12, "pct": 5.1, "status": "ok"}
+  },
+  "stage": "resolving",
+  "firstSeenAt": "2026-06-14T01:00:00Z",
+  "lastSyncedAt": "2026-06-14T15:30:45Z",
+  "outcomes": [
+    {
+      "outcomeId": 329,
+      "questionId": null,
+      "name": "BTC above $95k by 7am UTC",
+      "description": "class:priceBinary|underlying:BTC|expiry:2026-06-15T07:00:00Z|targetPrice:95000",
+      "class": "priceBinary",
+      "underlying": "BTC",
+      "targetPrice": 95000,
+      "quoteToken": "USDC",
+      "expiryAt": "2026-06-15T07:00:00Z",
+      "period": "daily",
+      "sides": {"yes": "BTC >= $95k", "no": "BTC < $95k"},
+      "yesMidPx": 0.62,
+      "noMidPx": 0.38,
+      "isResolved": false,
+      "winningSide": null,
+      "metrics": {
+        "volume_24h": 87500,
+        "trades_24h": 320,
+        "holders_total": 156,
+        "holders_yes": 95,
+        "holders_no": 61,
+        "holders_whale": 8,
+        "holders_smart_money": 6
+      },
+      "deltas": {},
+      "stage": "resolving",
+      "firstSeenAt": "2026-06-14T01:00:00Z",
+      "lastSyncedAt": "2026-06-14T15:30:45Z"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+## Examples
+
+### Hottest movers (1h volume surge)
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "deltas": [{"metric": "volume", "window": "1h", "compare": "delta_pct"}],
+    "sort": {"metric": "volume_24h", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### New & rising
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "stages": ["new", "building"],
+    "sort": {"metric": "volume_24h", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Whale-heavy questions
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "holdersMin": 10,
+    "sort": {"metric": "holders_whale", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Price movement momentum (new metric)
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "deltas": [{"metric": "price_movement", "window": "1h", "compare": "delta_pct"}],
+    "sort": {"metric": "price_movement", "window": "1h", "compare": "delta_pct", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Threshold conditions (compound filters)
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "conditions": [
+      {"metric": "volume_24h", "op": "gt", "value": 50000},
+      {"metric": "holders_total", "op": "gte", "value": 100},
+      {"metric": "volume", "window": "1h", "compare": "delta_pct", "op": "gt", "value": 10}
+    ],
+    "conditionLogic": "and",
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Questions only (exclude standalone cards)
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "includeStandalone": false,
+    "sort": {"metric": "volume_24h", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Cursor pagination
+
+```bash
+curl -X POST 'https://api.klarity.trade/hyperliquid/questions/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "pagination": {"limit": 20, "cursor": "eyJzb3J0VmFsdWUiOjEwMCwiY2FyZElkIjoicTo0MiJ9"}
+  }'
+```

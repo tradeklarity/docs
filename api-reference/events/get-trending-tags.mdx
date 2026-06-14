@@ -1,0 +1,35 @@
+---
+title: 'Trending Tags'
+openapi: openapi-api.yaml GET /events/trending-tags
+description: 'Tags ranked by volume activity across all active events'
+---
+
+Returns event tags (e.g., "politics", "crypto", "sports") ranked by total volume activity. Powers the frontend's trending categories pill bar.
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 20 | Max tags to return (1-50) |
+| `window` | string | `24h` | Volume change window: `5m`, `1h`, or `24h` |
+| `min_volume` | number | 0 | Minimum total volume to include a tag |
+| `min_events` | number | 1 | Minimum number of events with this tag |
+
+### Response Fields
+
+Each tag includes:
+- **`tag`** — tag slug (e.g., "politics", "crypto")
+- **`total_volume`** — aggregate volume across all events with this tag
+- **`volume_change_abs`** — absolute volume change over the selected window (null if no history)
+- **`event_count`** — number of active events tagged
+- **`total_liquidity`** — aggregate liquidity across tagged events
+
+### Example
+
+```bash
+curl 'https://api.klarity.trade/events/trending-tags?window=24h&limit=10'
+```
+
+<Tip>
+  Use trending tags to populate category filters. Combine with `POST /events/discover` using the `tags_any` filter to browse events by trending category.
+</Tip>

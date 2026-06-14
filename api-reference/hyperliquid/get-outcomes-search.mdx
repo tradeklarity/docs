@@ -1,0 +1,46 @@
+---
+title: 'HIP-4 Outcomes Semantic Search'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/search
+description: Semantic search across Hyperliquid HIP-4 outcomes using embeddings
+---
+
+Free-text semantic search across active HIP-4 outcomes. The query string
+is embedded at request time via OpenAI `text-embedding-3-small` (1536-dim
+via OpenRouter) and ranked against the per-outcome vectors stored in
+`hl_outcome_embeddings` by cosine similarity.
+
+Mirrors the Polymarket
+[`GET /markets/search`](/api-reference/markets/get-search) endpoint but
+returns HL `outcomeId` references.
+
+## Query Parameters
+
+<ParamField query="q" type="string" required>
+  Free-text search query (1-500 chars)
+</ParamField>
+<ParamField query="limit" type="integer" default="10">
+  Number of results (1-50)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/search?q=will%20bitcoin%20hit%20100k&limit=5"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/outcomes/search?q=' +
+    encodeURIComponent('bitcoin price prediction'),
+);
+const { data, count } = await res.json();
+// data[0].outcomeId, data[0].similarity (cosine, higher = closer)
+```
+</CodeGroup>
+
+<Note>
+  Returns 503 when `OPENROUTER_API_KEY` is unset or the upstream embed call
+  fails. Clients should gracefully fall back to a text search on `name` /
+  `description` in that case.
+</Note>

@@ -1,0 +1,324 @@
+---
+title: 'Discover Markets'
+description: 'Query the discovery engine with filters, deltas, and cursor pagination'
+openapi: 'POST /markets/discover'
+---
+
+## Response Format
+
+Each market in the response contains:
+
+```json
+{
+  "markets": [
+    {
+      "market_id": "123456",
+      "slug": "will-trump-win-2028",
+      "question": "Will Trump win the 2028 election?",
+      "category": "politics",
+      "active": true,
+      "closed": false,
+      "end_date": "2028-11-05T00:00:00Z",
+      "created_at": "2026-01-15T10:30:00Z",
+      "price": 0.42,
+      "stage": "building",
+      "age_seconds": 86400,
+      "available_windows": ["5m", "15m", "30m", "1h", "4h", "24h"],
+
+      "metrics": {
+        "volume": 1500000,
+        "liquidity": 250000,
+        "holders_total": 1250,
+        "holders_yes": 800,
+        "holders_no": 450,
+        "holders_whale": 45,
+        "holders_smart_money": 32,
+        "holders_insider": 3,
+        "price": 0.42,
+        "smart_money_side": "yes",
+        "smart_money_conviction": 72,
+        "whale_side": "yes",
+        "whale_conviction": 68,
+        "insider_side": "yes",
+        "insider_conviction": 85,
+        "insider_recent_count": 2
+      },
+
+      "deltas": {
+        "volume_24h": { "abs": 25000, "pct": 1.7, "status": "ok" }
+      },
+
+      "tags": ["politics", "election"],
+      "outcomePrices": ["0.42", "0.58"],
+      "clobTokenIds": ["12345", "12346"],
+      "event_id": "789"
+    }
+  ],
+  "pagination": {
+    "has_more": true,
+    "next_cursor": "eyJpZCI6IjEyMyIsInZhbHVlIjoyNTAwMH0="
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `market_id` | string | Polymarket market ID |
+| `slug` | string | URL-friendly market slug |
+| `question` | string | Market question text |
+| `category` | string | Market category |
+| `active` / `closed` | boolean | Market status |
+| `end_date` | string | Resolution deadline (ISO-8601) |
+| `price` | number | YES outcome probability (0-1) |
+| `stage` | string | Lifecycle stage: `new`, `building`, `peak`, `settling`, `resolving` |
+| `age_seconds` | number | Market age in seconds |
+| `available_windows` | string[] | Which delta windows have enough history |
+| `outcomePrices` | string[] | Current outcome prices from Polymarket |
+| `clobTokenIds` | string[] | CLOB token IDs for WebSocket subscriptions |
+| `tags` | string[] | Tags from parent event |
+
+### Metrics Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `volume` | number | Total traded volume (USD) |
+| `liquidity` | number | Current liquidity (USD) |
+| `holders_total` | number | Total unique holders |
+| `holders_yes` / `holders_no` | number | Holders by side |
+| `holders_whale` | number | Portfolio whale count |
+| `holders_smart_money` | number | Smart money holder count |
+| `holders_insider` | number | Concentrated bettor count |
+| `price` | number | YES price (0-1) |
+| `smart_money_side` | string | Smart money consensus: `yes`, `no`, or `split` |
+| `smart_money_conviction` | number | % on dominant side (0-100). 80 = 80% of smart money agrees |
+| `whale_side` / `whale_conviction` | string / number | Same pattern for whales |
+| `insider_side` / `insider_conviction` | string / number | Same pattern for insiders |
+| `insider_recent_count` | number | New insiders in last ~30 min. Powers "X INSIDERS ACTIVE" badge |
+
+### Deltas Object
+
+Each requested delta appears as `{metric}_{window}`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `abs` | number \| null | Absolute change over window |
+| `pct` | number \| null | Percentage change over window |
+| `status` | string | `ok`, `too_new`, `missing_history`, or `div0` |
+
+### Lifecycle Stages
+
+| Stage | Condition |
+|-------|-----------|
+| `resolving` | Within 48h of end_date |
+| `new` | Created less than 24h ago |
+| `settling` | Volume 4h delta below -5% |
+| `building` | Volume 4h delta above +5% |
+| `peak` | Default (stable volume) |
+
+---
+
+## Request Parameters
+
+### Deltas
+
+Request specific metric changes over time windows:
+
+```json
+{
+  "deltas": [
+    {"metric": "volume", "window": "24h", "compare": "delta_pct"},
+    {"metric": "holders_total", "window": "1h", "compare": "delta_abs"}
+  ]
+}
+```
+
+**Metrics:** `volume`, `liquidity`, `price`, `holders_total`, `holders_yes`, `holders_no`, `holders_whale`, `holders_smart_money`, `holders_insider`
+
+**Windows:** `5m`, `15m`, `30m`, `1h`, `4h`, `24h`, `7d`, `30d`
+
+**Compare:** `delta_abs` (absolute change) or `delta_pct` (percentage change)
+
+**Custom window with `since`:** Use an ISO-8601 timestamp instead of a fixed window:
+```json
+{"metric": "volume", "since": "2026-03-20T00:00:00Z", "compare": "delta_abs"}
+```
+Max 5 since-deltas, max 30 days old. Response key: `{metric}_since`.
+
+### Sort
+
+Simple sort:
+```json
+{"sort": {"metric": "volume", "direction": "desc"}}
+```
+
+Delta sort:
+```json
+{"sort": {"metric": "volume", "window": "24h", "compare": "delta_pct", "direction": "desc"}}
+```
+
+Compound sort (fallback when primary is null):
+```json
+{
+  "sort": {
+    "primary": {"metric": "volume", "window": "1h", "compare": "delta_pct", "direction": "desc"},
+    "fallback": {"metric": "volume", "direction": "desc"}
+  }
+}
+```
+
+Date sort: `{"sort": {"metric": "end_date", "direction": "asc"}}`
+
+### Filters
+
+Nested AND/OR filter groups:
+
+```json
+{
+  "filters": {
+    "operator": "AND",
+    "conditions": [
+      {"metric": "volume", "window": "24h", "compare": "delta_pct", "operator": "gt", "value": 5},
+      {"metric": "liquidity", "operator": "gt", "value": 10000}
+    ]
+  }
+}
+```
+
+**Operators:** `gt`, `gte`, `lt`, `lte`, `eq`, `neq`
+
+### Pagination
+
+Cursor-based, max 100 per page:
+```json
+{"pagination": {"limit": 20, "cursor": "eyJpZCI6..."}}
+```
+
+### Other Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stages` | string[] | Filter by lifecycle stage: `["new", "building"]` |
+| `categories` | string[] | Filter by category |
+| `tags_any` | string[] | Markets with ANY of these tags |
+| `tags_all` | string[] | Markets with ALL of these tags |
+| `tags_none` | string[] | Exclude markets with these tags |
+| `price_min` / `price_max` | number | Price range filter (0-1) |
+| `end_date_min` / `end_date_max` | string | End date range (ISO-8601) |
+| `created_at_min` / `created_at_max` | string | Creation date range (ISO-8601) |
+| `search` | string | Text search on market question |
+| `min_age_seconds` | number | Minimum market age |
+| `require` | array | Only return markets with `status=ok` for specified deltas |
+| `nulls` | string | Handle null deltas: `exclude`, `last` (default), `zero` |
+| `as_of` | string | Freeze age computation for deterministic pagination |
+| `explain` | boolean | Return generated SQL (development only) |
+
+---
+
+## Example Requests
+
+### Hottest Movers (5m volume surge)
+
+```bash
+curl -X POST 'https://api.klarity.trade/markets/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "deltas": [{"metric": "volume", "window": "5m", "compare": "delta_pct"}],
+    "sort": {"primary": {"metric": "volume", "window": "5m", "compare": "delta_pct", "direction": "desc"}},
+    "require": [{"metric": "volume", "window": "5m", "compare": "delta_pct"}],
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Whale Radar
+
+```bash
+curl -X POST 'https://api.klarity.trade/markets/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "deltas": [{"metric": "holders_whale", "window": "1h", "compare": "delta_abs"}],
+    "sort": {"primary": {"metric": "holders_whale", "window": "1h", "compare": "delta_abs", "direction": "desc"}},
+    "require": [{"metric": "holders_whale", "window": "1h", "compare": "delta_abs"}],
+    "pagination": {"limit": 20}
+  }'
+```
+
+### New & Rising
+
+```bash
+curl -X POST 'https://api.klarity.trade/markets/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "stages": ["new", "building"],
+    "sort": {"metric": "volume", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Smart Money Consensus
+
+```bash
+curl -X POST 'https://api.klarity.trade/markets/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "filters": {"operator": "AND", "conditions": [
+      {"metric": "holders_smart_money", "operator": "gte", "value": 5}
+    ]},
+    "sort": {"metric": "volume", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Toss-Ups (price 0.4-0.6)
+
+```bash
+curl -X POST 'https://api.klarity.trade/markets/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "price_min": 0.4,
+    "price_max": 0.6,
+    "sort": {"metric": "volume", "direction": "desc"},
+    "pagination": {"limit": 20}
+  }'
+```
+
+### Filter by Tags
+
+```bash
+curl -X POST 'https://api.klarity.trade/markets/discover' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "tags_any": ["crypto", "bitcoin"],
+    "tags_none": ["hide-from-new"],
+    "pagination": {"limit": 20}
+  }'
+```
+
+---
+
+## API Constraints
+
+| Constraint | Limit |
+|-----------|-------|
+| Filter nesting depth | 5 levels |
+| Total filter conditions | 50 |
+| Array fields (categories, tags) | 50 items |
+| String fields (search, tags) | 200 characters |
+| Numeric values | Must be finite |
+| Max deltas | 10 per request |
+| Max since-deltas | 5 per request |
+| Query timeout | 10 seconds |
+| Pagination limit | 1-100 (default 20) |
+
+## Error Responses
+
+**400 — Validation Error**
+```json
+{"error": "Validation failed", "details": [{"path": ["deltas", 0, "window"], "message": "Invalid enum value"}]}
+```
+
+**504 — Query Timeout**
+```json
+{"error": "Query timeout — try simplifying your filters or reducing result size", "traceId": "..."}
+```

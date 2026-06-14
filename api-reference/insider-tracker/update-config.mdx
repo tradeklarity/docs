@@ -1,0 +1,159 @@
+---
+title: Update Insider Config
+openapi: openapi-stream.yaml POST /insider-tracker/config
+description: Update your insider tracker configuration
+---
+
+## Overview
+
+Update your insider tracker configuration. You can update individual fields - only the fields you provide will be changed.
+
+**Server Constraints:**
+
+- `notionalMin`: Must be &gt;= $1,000 (floor enforced)
+- `uniqueMarketsMax`: Must be &lt;= 20 (ceiling enforced)
+- `maxAccountAgeHours`: Must be &lt;= 48 hours (ceiling enforced), or `null` to disable
+
+If you're connected to the SSE stream when you update config, you'll receive a `config_updated` system event and future alerts will use the new settings.
+
+## Headers
+
+<ParamField header="x-user-id" type="string" required>
+  User identifier
+</ParamField>
+
+## Request Body
+
+<ParamField body="notionalMin" type="number">
+  Minimum trade notional value in USD.
+
+Must be >= 1000. Default: 10000
+
+</ParamField>
+
+<ParamField body="uniqueMarketsMax" type="number">
+  Maximum unique markets the trader can have.
+
+Must be &gt;= 1 and &lt;= 20. Default: 5
+
+</ParamField>
+
+<ParamField body="maxAccountAgeHours" type="number | null">
+  Maximum account age in hours. Set to `null` to disable this filter.
+
+Must be &gt;= 1 and &lt;= 48 when enabled. Default: null
+
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Whether the update was successful
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Your updated configuration (with constraints applied)
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+# Update notional minimum only
+curl -X POST "https://ws.klarity.trade/stream/insider-tracker/config" \
+  -H "Content-Type: application/json" \
+  -H "x-user-id: my-user-id" \
+  -d '{"notionalMin": 5000}'
+
+# Update multiple fields
+
+curl -X POST "https://ws.klarity.trade/stream/insider-tracker/config" \
+ -H "Content-Type: application/json" \
+ -H "x-user-id: my-user-id" \
+ -d '{"notionalMin": 5000, "uniqueMarketsMax": 10, "maxAccountAgeHours": 24}'
+
+# Enable account age filter
+
+curl -X POST "https://ws.klarity.trade/stream/insider-tracker/config" \
+ -H "Content-Type: application/json" \
+ -H "x-user-id: my-user-id" \
+ -d '{"maxAccountAgeHours": 12}'
+
+# Disable account age filter
+
+curl -X POST "https://ws.klarity.trade/stream/insider-tracker/config" \
+ -H "Content-Type: application/json" \
+ -H "x-user-id: my-user-id" \
+ -d '{"maxAccountAgeHours": null}'
+
+````
+
+```javascript JavaScript
+const response = await fetch(
+  'https://ws.klarity.trade/stream/insider-tracker/config',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-user-id': 'my-user-id'
+    },
+    body: JSON.stringify({
+      notionalMin: 5000,
+      uniqueMarketsMax: 10,
+      maxAccountAgeHours: 24
+    })
+  }
+);
+const data = await response.json();
+console.log('Updated config:', data.config);
+````
+
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "config": {
+    "notionalMin": 5000,
+    "uniqueMarketsMax": 10,
+    "maxAccountAgeHours": 24
+  }
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**400 - Validation Error:**
+
+```json
+{
+  "error": "Invalid config",
+  "details": [
+    { "path": ["notionalMin"], "message": "Number must be greater than or equal to 1000" }
+  ],
+  "constraints": {
+    "notionalMin": { "floor": 1000 },
+    "uniqueMarketsMax": { "ceiling": 20 },
+    "maxAccountAgeHours": { "ceiling": 48 }
+  }
+}
+```
+
+**400 - No Fields Provided:**
+
+```json
+{
+  "error": "No config fields provided",
+  "message": "Provide at least one of: notionalMin, uniqueMarketsMax, maxAccountAgeHours"
+}
+```
+
+## Constraint Enforcement
+
+When you provide a value outside the allowed range, the server will clamp it:
+
+| You send                  | Server stores | Why           |
+| ------------------------- | ------------- | ------------- |
+| `notionalMin: 500`        | `1000`        | Floor: $1,000 |
+| `uniqueMarketsMax: 50`    | `20`          | Ceiling: 20   |
+| `maxAccountAgeHours: 100` | `48`          | Ceiling: 48h  |

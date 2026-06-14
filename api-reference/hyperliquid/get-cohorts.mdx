@@ -1,0 +1,37 @@
+---
+title: 'HIP-4 Cohorts'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/cohorts
+description: Trader cohort distribution by PnL tier, size tier, or win-rate tier
+---
+
+Returns trader buckets for the requested cohort type with member counts, total
+volume, total PnL, average win rate, and cohort share (fraction of total
+population).
+
+Backed by `hl_cohort_serving` (refreshed every 10 minutes).
+
+Rate limit: 60 requests/minute. Response cached for 60s.
+
+## Query Parameters
+
+<ParamField query="cohort_type" type="string" default="pnl_tier">
+  Cohort dimension: `pnl_tier`, `size_tier`, or `win_rate_tier`
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash PnL tiers
+curl "https://api.klarity.trade/hyperliquid/cohorts?cohort_type=pnl_tier"
+```
+
+```bash Win-rate tiers
+curl "https://api.klarity.trade/hyperliquid/cohorts?cohort_type=win_rate_tier"
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/cohorts?cohort_type=pnl_tier');
+const { cohortType, buckets, totalMembers, computedAt } = await res.json();
+// buckets[0]: { bucket, memberCount, totalVolume, totalPnl, avgPnl, avgWinRate, cohortShare }
+```
+</CodeGroup>

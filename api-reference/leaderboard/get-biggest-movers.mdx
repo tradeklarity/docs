@@ -1,0 +1,46 @@
+---
+title: 'Biggest Movers'
+openapi: 'GET /leaderboard/biggest-movers'
+description: 'Get traders with the largest PnL gains and losses over a time window'
+---
+
+Returns the traders with the biggest PnL movements (both winners and losers) over a configurable time window. Use this to identify who is making or losing the most money right now.
+
+### Key Features
+
+- **Winners and losers** -- see both the biggest gainers and biggest losers
+- **Time windows** -- 1 day, 1 week, or 1 month lookback periods
+- **Filterable** -- request only winners, only losers, or both
+- **Profile enriched** -- includes display names and avatars where available
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `window` | string | `1d` | Time window: `1d` (1 day), `1w` (1 week), `1m` (1 month) |
+| `limit` | integer | 10 | Number of traders per category (1-50) |
+| `type` | string | `both` | Which movers to return: `winners`, `losers`, or `both` |
+
+### Example Requests
+
+**Top 10 biggest movers today:**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/biggest-movers"
+```
+
+**Top 5 winners this week:**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/biggest-movers?window=1w&limit=5&type=winners"
+```
+
+**Biggest losers this month:**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/biggest-movers?window=1m&type=losers"
+```
+
+### Response Format
+
+When `type=both` (default), the response contains separate arrays for winners and losers. Each trader entry includes their address, PnL change over the window, and profile data when available.

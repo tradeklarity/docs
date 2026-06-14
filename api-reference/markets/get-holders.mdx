@@ -1,0 +1,190 @@
+---
+title: 'Market Holders'
+openapi: openapi-api.yaml GET /markets/{slug}/holders
+description: Get holders for a market with position, classification, and profile data
+---
+
+## Path Parameters
+
+<ParamField path="slug" type="string" required>
+  Market slug identifier (e.g., `will-trump-win-2024`)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="25">
+  Maximum number of holders to return (max: 50)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of holders to skip for pagination
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="size">
+  Sort field: `size` or `pnl`
+</ParamField>
+
+<ParamField query="sortDirection" type="string" default="desc">
+  Sort direction: `asc` or `desc`
+</ParamField>
+
+<ParamField query="includeProfiles" type="boolean" default="false">
+  Include Polymarket profile data (displayName, profileImage, xUsername, etc). Set to `false` for
+  faster responses (~100ms), `true` to include profiles (~500ms+).
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  <Expandable title="Holder object">
+    <ResponseField name="address" type="string">
+      Wallet address
+    </ResponseField>
+    <ResponseField name="profile" type="object">
+      Polymarket profile data (null if user has no profile)
+      <Expandable title="Profile fields">
+        <ResponseField name="displayName" type="string">
+          Computed: name if set, otherwise pseudonym
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          User-chosen display name
+        </ResponseField>
+        <ResponseField name="pseudonym" type="string">
+          Auto-generated pseudonym
+        </ResponseField>
+        <ResponseField name="profileImage" type="string">
+          URL to profile image
+        </ResponseField>
+        <ResponseField name="xUsername" type="string">
+          X (Twitter) username
+        </ResponseField>
+        <ResponseField name="verifiedBadge" type="boolean">
+          Whether profile has verified badge
+        </ResponseField>
+        <ResponseField name="createdAt" type="string">
+          ISO 8601 timestamp of profile creation
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="remainingShares" type="number">
+      Number of outcome token shares currently held
+    </ResponseField>
+    <ResponseField name="boughtShares" type="number">
+      Total shares bought over lifetime of this position
+    </ResponseField>
+    <ResponseField name="soldShares" type="number">
+      Total shares sold = boughtShares - remainingShares
+    </ResponseField>
+    <ResponseField name="avgEntryPriceUsd" type="number">
+      Volume-weighted average entry price in USD
+    </ResponseField>
+    <ResponseField name="realizedPnlUsd" type="number">
+      Realized profit/loss in USD from closed portions
+    </ResponseField>
+    <ResponseField name="tokenId" type="string">
+      CLOB token ID for the outcome token
+    </ResponseField>
+    <ResponseField name="priceUsd" type="number">
+      Current market price per share in USD
+    </ResponseField>
+    <ResponseField name="unrealizedPnlUsd" type="number">
+      Unrealized PnL in USD = remainingShares × (priceUsd - avgEntryPriceUsd)
+    </ResponseField>
+    <ResponseField name="remainingValueUsd" type="number">
+      Current position value in USD = remainingShares × priceUsd
+    </ResponseField>
+    <ResponseField name="isPortfolioWhale" type="boolean">
+      Whether holder is classified as a whale (portfolio ≥ $100k)
+    </ResponseField>
+    <ResponseField name="isSmartMoney" type="boolean">
+      Whether holder meets smart money criteria (high PnL)
+    </ResponseField>
+    <ResponseField name="isInsider" type="boolean">
+      Whether holder is a new wallet with significant position
+    </ResponseField>
+    <ResponseField name="ageHours" type="number">
+      Account age in hours (null if unknown)
+    </ResponseField>
+    <ResponseField name="winRatePct" type="number">
+      Win rate as percentage (0-1), null if unknown
+    </ResponseField>
+    <ResponseField name="totalRealizedPnlUsd" type="number">
+      Total realized PnL in USD across all closed positions (account-wide)
+    </ResponseField>
+    <ResponseField name="closedPositions" type="number">
+      Total number of closed positions
+    </ResponseField>
+    <ResponseField name="portfolioValueUsd" type="number">
+      Current total portfolio value in USD
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  <ResponseField name="marketId" type="string">
+    Condition ID
+  </ResponseField>
+  <ResponseField name="slug" type="string">
+    Market slug
+  </ResponseField>
+  <ResponseField name="count" type="integer">
+    Number of holders returned
+  </ResponseField>
+  <ResponseField name="limit" type="integer">
+    Limit used
+  </ResponseField>
+  <ResponseField name="offset" type="integer">
+    Offset used
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://api.klarity.trade/markets/will-trump-win-2024/holders?limit=10&sortBy=size"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "data": [
+    {
+      "address": "0x1234567890abcdef1234567890abcdef12345678",
+      "profile": {
+        "displayName": "CryptoWhale",
+        "name": "CryptoWhale",
+        "pseudonym": "clever-hippo-42",
+        "profileImage": "https://polymarket.com/avatars/xxx.png",
+        "xUsername": "cryptowhale",
+        "verifiedBadge": true,
+        "createdAt": "2023-11-07T05:31:56Z"
+      },
+      "remainingShares": 84349.34,
+      "boughtShares": 100000,
+      "soldShares": 15650.66,
+      "avgEntryPriceUsd": 0.41,
+      "realizedPnlUsd": 15200.50,
+      "tokenId": "10048466155779778...",
+      "priceUsd": 0.55,
+      "unrealizedPnlUsd": 11808.91,
+      "remainingValueUsd": 46392.14,
+      "isPortfolioWhale": true,
+      "isSmartMoney": true,
+      "isInsider": false,
+      "ageHours": 8760.5,
+      "winRatePct": 0.58,
+      "totalRealizedPnlUsd": 125000.00,
+      "closedPositions": 156,
+      "portfolioValueUsd": 350000.00
+    }
+  ],
+  "meta": {
+    "marketId": "0x8f8783bdabdd...",
+    "slug": "will-trump-win-2024",
+    "count": 1,
+    "limit": 10,
+    "offset": 0
+  }
+}
+```
+</ResponseExample>

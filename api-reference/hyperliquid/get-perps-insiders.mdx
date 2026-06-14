@@ -1,0 +1,39 @@
+---
+title: 'Perpetual Insiders'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets/{coin}/insiders
+description: Insider-flagged holders (fresh accounts with sizeable positions)
+---
+
+Returns addresses currently holding the perp that satisfy the perp insider
+predicate:
+
+```
+account_age_hours <= HL_PERPS_INSIDER_MAX_AGE_HOURS (default 48)
+  AND position_notional >= HL_PERPS_INSIDER_MIN_POSITION_USD (default $500)
+```
+
+The position threshold is 5x HIP-4's $100 because perps allow 50x leverage —
+$100 notional is a $2 capital commitment, too cheap to signal an information edge.
+
+Account age is derived from the wallet's first observed perp fill in
+`hl_perp_user_fills_raw`.
+
+Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="coin" type="string" required>
+  Bare perp asset symbol.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Number of insiders to return (max 100).
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/assets/HYPE/insiders?limit=20"
+```

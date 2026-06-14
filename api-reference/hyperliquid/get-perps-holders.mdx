@@ -1,0 +1,36 @@
+---
+title: 'Perpetual Top Holders'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets/{coin}/holders
+description: Top addresses with open positions on a perp, with classification badges
+---
+
+Returns the top addresses with open positions on this perp, sorted by absolute
+position size (`|szi|`). Positions are signed: `szi > 0` is long, `szi < 0` is short.
+
+Each row carries classification badges (`isWhale` / `isInsider` / `isSmartMoney`)
+and a composite `smartScore` (0-100). Closed positions tombstone with `szi = 0`
+and are filtered out.
+
+Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="coin" type="string" required>
+  Bare perp asset symbol.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="side" type="string" default="both">
+  Position side: `long`, `short`, or `both`.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Number of holders to return (max 100).
+</ParamField>
+
+## Examples
+
+```bash Top 20 BTC longs
+curl "https://api.klarity.trade/hyperliquid/perps/assets/BTC/holders?side=long&limit=20"
+```

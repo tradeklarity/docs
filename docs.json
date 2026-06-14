@@ -9,28 +9,300 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "pages": [
+    "tabs": [
       {
-        "group": "Getting started",
+        "tab": "Get Started",
         "pages": [
           "index",
           "quickstart"
         ]
       },
       {
-        "group": "Realtime streams",
-        "pages": [
-          "streams/overview",
-          "streams/telegram",
-          "streams/twitter"
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Reference",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/error-codes",
+              "api-reference/rate-limits"
+            ]
+          },
+          {
+            "group": "Discovery",
+            "pages": [
+              "api-reference/markets/post-discover",
+              "api-reference/events/post-discover",
+              "api-reference/events/get-trending-tags",
+              "api-reference/events/get-event-detail"
+            ]
+          },
+          {
+            "group": "Markets",
+            "pages": [
+              "api-reference/markets/get-holders",
+              "api-reference/markets/get-trades",
+              "api-reference/markets/get-analytics",
+              "api-reference/markets/get-recently-started",
+              "api-reference/markets/get-ending-soon",
+              {
+                "group": "Detection",
+                "expanded": false,
+                "pages": [
+                  "api-reference/markets/get-whales",
+                  "api-reference/markets/get-insiders",
+                  "api-reference/markets/get-smartmoney"
+                ]
+              },
+              {
+                "group": "AI & Signals",
+                "expanded": false,
+                "pages": [
+                  "api-reference/markets/get-intelligence",
+                  "api-reference/markets/get-search",
+                  "api-reference/markets/get-anomalies"
+                ]
+              },
+              "api-reference/markets/stream"
+            ]
+          },
+          {
+            "group": "Hyperliquid",
+            "pages": [
+              "api-reference/hyperliquid/get-outcomes",
+              "api-reference/hyperliquid/get-outcome",
+              "api-reference/hyperliquid/get-outcome-analytics",
+              "api-reference/hyperliquid/post-outcomes-discover",
+              "api-reference/hyperliquid/post-questions-discover",
+              "api-reference/hyperliquid/get-question",
+              "api-reference/hyperliquid/get-questions-trending-tags",
+              "api-reference/hyperliquid/get-holders",
+              "api-reference/hyperliquid/get-trades",
+              {
+                "group": "Detection",
+                "expanded": false,
+                "pages": [
+                  "api-reference/hyperliquid/get-whales",
+                  "api-reference/hyperliquid/get-insiders",
+                  "api-reference/hyperliquid/get-smartmoney"
+                ]
+              },
+              {
+                "group": "Users",
+                "expanded": false,
+                "pages": [
+                  "api-reference/hyperliquid/get-user-aggregate",
+                  "api-reference/hyperliquid/get-user-fills",
+                  "api-reference/hyperliquid/get-user-trades",
+                  "api-reference/hyperliquid/get-user-positions",
+                  "api-reference/hyperliquid/get-user-pnl-history"
+                ]
+              },
+              "api-reference/hyperliquid/get-leaderboard",
+              "api-reference/hyperliquid/get-leaderboard-combined",
+              "api-reference/hyperliquid/get-cohorts",
+              {
+                "group": "Clusters",
+                "expanded": false,
+                "pages": [
+                  "api-reference/hyperliquid/get-cluster",
+                  "api-reference/hyperliquid/get-wallet-cluster",
+                  "api-reference/hyperliquid/get-wallet-similar"
+                ]
+              },
+              {
+                "group": "AI & Signals",
+                "expanded": false,
+                "pages": [
+                  "api-reference/hyperliquid/get-outcome-intelligence",
+                  "api-reference/hyperliquid/get-outcomes-search",
+                  "api-reference/hyperliquid/get-outcomes-anomalies",
+                  "api-reference/hyperliquid/get-outcome-correlated",
+                  "api-reference/hyperliquid/get-correlations-matrix"
+                ]
+              },
+              "api-reference/hyperliquid/get-wallet-identity",
+              {
+                "group": "Perpetuals",
+                "expanded": false,
+                "pages": [
+                  "api-reference/hyperliquid/get-perps-assets",
+                  "api-reference/hyperliquid/get-perps-asset",
+                  "api-reference/hyperliquid/post-perps-discover",
+                  "api-reference/hyperliquid/get-perps-holders",
+                  "api-reference/hyperliquid/get-perps-whales",
+                  "api-reference/hyperliquid/get-perps-insiders",
+                  "api-reference/hyperliquid/get-perps-smartmoney",
+                  "api-reference/hyperliquid/get-perps-trades",
+                  "api-reference/hyperliquid/get-perps-user-positions",
+                  "api-reference/hyperliquid/get-perps-user-fills",
+                  "api-reference/hyperliquid/get-perps-leaderboard",
+                  "api-reference/hyperliquid/get-perps-cohorts"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Streams",
+            "pages": [
+              "api-reference/markets/stream",
+              "api-reference/realtime/global-trade-stream",
+              "api-reference/realtime/global-trade-stats",
+              {
+                "group": "Wallet Tracker",
+                "expanded": false,
+                "pages": [
+                  "api-reference/wallet-tracker/auth-stream-ticket",
+                  "api-reference/wallet-tracker/subscribe",
+                  "api-reference/wallet-tracker/unsubscribe",
+                  "api-reference/wallet-tracker/tracked",
+                  "api-reference/wallet-tracker/stream",
+                  "api-reference/wallet-tracker/stats"
+                ]
+              },
+              {
+                "group": "Insider Tracker",
+                "expanded": false,
+                "pages": [
+                  "api-reference/insider-tracker/stream",
+                  "api-reference/insider-tracker/public-stream",
+                  "api-reference/insider-tracker/get-config",
+                  "api-reference/insider-tracker/update-config",
+                  "api-reference/insider-tracker/stats"
+                ]
+              },
+              {
+                "group": "Smart Money Tracker",
+                "expanded": false,
+                "pages": [
+                  "api-reference/smart-money-tracker/public-stream",
+                  "api-reference/smart-money-tracker/stats"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api-reference/users/get-user-details",
+              "api-reference/users/get-active-positions",
+              "api-reference/users/get-closed-positions",
+              "api-reference/users/get-user-trades",
+              "api-reference/users/get-pnl-history",
+              "api-reference/users/get-category-performance"
+            ]
+          },
+          {
+            "group": "Cohorts",
+            "pages": [
+              "api-reference/cohorts/get-all",
+              "api-reference/cohorts/get-detail",
+              "api-reference/cohorts/get-markets",
+              "api-reference/cohorts/get-wallets",
+              "api-reference/cohorts/get-positioning",
+              "api-reference/cohorts/get-market-cohorts"
+            ]
+          },
+          {
+            "group": "Leaderboard",
+            "pages": [
+              "api-reference/leaderboard/get-global",
+              "api-reference/leaderboard/get-biggest-movers"
+            ]
+          },
+          {
+            "group": "Clusters & Bubble Maps",
+            "pages": [
+              "api-reference/clusters/get-market-clusters",
+              "api-reference/clusters/get-explore-clusters",
+              "api-reference/clusters/get-cross-market-activity",
+              {
+                "group": "Wallet Similarity",
+                "expanded": false,
+                "pages": [
+                  "api-reference/clusters/get-similar-wallets",
+                  "api-reference/clusters/get-similar-wallets-behavioral",
+                  "api-reference/clusters/get-similar-wallets-funding"
+                ]
+              },
+              {
+                "group": "Cluster Details",
+                "expanded": false,
+                "pages": [
+                  "api-reference/clusters/get-cluster-details",
+                  "api-reference/clusters/get-cluster-evidence"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Funding",
+            "pages": [
+              "api-reference/funding/get-wallet-funding",
+              "api-reference/funding/get-source-funding",
+              "api-reference/funding/get-trace",
+              "api-reference/funding/get-shared-source",
+              "api-reference/funding/get-transfers",
+              "api-reference/funding/get-stats",
+              "api-reference/funding/get-label"
+            ]
+          },
+          {
+            "group": "Correlations",
+            "pages": [
+              "api-reference/correlations/get-correlated-markets",
+              "api-reference/correlations/get-matrix"
+            ]
+          },
+          {
+            "group": "Alert Rules",
+            "pages": [
+              "api-reference/alert-rules/list",
+              "api-reference/alert-rules/create",
+              "api-reference/alert-rules/get",
+              "api-reference/alert-rules/update",
+              "api-reference/alert-rules/delete",
+              "api-reference/alert-rules/history",
+              "api-reference/alert-rules/test",
+              "api-reference/alert-rules/stats",
+              "api-reference/alert-rules/alerts-stream"
+            ]
+          },
+          {
+            "group": "Copy Trading",
+            "pages": [
+              "api-reference/copy-trading/get-traders",
+              "api-reference/copy-trading/get-trader",
+              "api-reference/copy-trading/stats",
+              "api-reference/copy-trading/stream"
+            ]
+          }
         ]
       },
       {
-        "group": "UMA API",
-        "pages": [
-          "uma/overview",
-          "uma/markets",
-          "uma/resolutions"
+        "tab": "Realtime Streams",
+        "groups": [
+          {
+            "group": "Social Monitors",
+            "pages": [
+              "streams/overview",
+              "streams/telegram",
+              "streams/twitter"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "UMA API",
+        "groups": [
+          {
+            "group": "UMA",
+            "pages": [
+              "uma/overview",
+              "uma/markets",
+              "uma/resolutions"
+            ]
+          }
         ]
       }
     ],

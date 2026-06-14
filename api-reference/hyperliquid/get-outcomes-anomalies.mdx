@@ -1,0 +1,58 @@
+---
+title: 'HIP-4 Outcome Anomalies'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/anomalies
+description: Recent volume / holder / price anomalies on Hyperliquid HIP-4 outcomes
+---
+
+Recent detected anomalies across HIP-4 outcomes. Populated by the
+`detect-hl-outcome-anomalies` sync job every 15 minutes. Each row is a
+discrete detection event; the table is append-only with a 30-day TTL.
+
+### Anomaly types
+
+| Type           | Rule                                                                  |
+| -------------- | --------------------------------------------------------------------- |
+| `volume_spike` | 1h volume > 5x the 7d hourly average                                  |
+| `holder_surge` | abs(holders\_total) Δ > 20% over the last 30 minutes                  |
+| `price_swing`  | `yes_mid_px` swing (max - min) > 30% of current price over last 1h    |
+
+### Severity buckets
+
+`low` / `medium` / `high` — bucketed by how far the measured metric exceeds the
+detection threshold.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="50">
+  Max results to return (1-200)
+</ParamField>
+<ParamField query="outcomeId" type="integer">
+  Filter to a specific outcome
+</ParamField>
+<ParamField query="anomalyType" type="string">
+  Filter by anomaly type: `volume_spike`, `holder_surge`, `price_swing`
+</ParamField>
+<ParamField query="severity" type="string">
+  Filter by severity: `low`, `medium`, `high`
+</ParamField>
+<ParamField query="since" type="string">
+  Only include anomalies detected at or after this ISO-8601 timestamp
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/anomalies?anomalyType=volume_spike&severity=high&limit=20"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/outcomes/anomalies?anomalyType=volume_spike',
+);
+const { data } = await res.json();
+for (const a of data) {
+  console.log(a.outcomeId, a.anomalyType, a.severity, a.description);
+}
+```
+</CodeGroup>

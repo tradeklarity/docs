@@ -1,0 +1,43 @@
+---
+title: 'Alert Stats'
+openapi: openapi-stream.yaml GET /alert-rules/stats
+description: Get alert system statistics (no auth required)
+---
+
+## Overview
+
+Returns global alert system statistics. This is an **unauthenticated** endpoint -- it returns system-wide stats, not per-user stats.
+
+## Authentication
+
+None required. This endpoint is public.
+
+## Response
+
+<ResponseField name="activeRules" type="integer">
+  Number of alert rules currently loaded in the evaluation engine.
+</ResponseField>
+
+<ResponseField name="sseClients" type="integer">
+  Number of connected SSE alert stream clients.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/alert-rules/stats"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "activeRules": 15,
+  "sseClients": 3
+}
+```
+</ResponseExample>
+
+<Note>
+Unlike other alert endpoints, this does not require JWT authentication.
+Only `activeRules` and `sseClients` are returned -- no per-user breakdown or 24h firing stats.
+</Note>

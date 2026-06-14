@@ -1,0 +1,52 @@
+---
+title: 'Delete Rule'
+openapi: openapi-stream.yaml DELETE /alert-rules/{ruleId}
+description: Delete an alert rule by ID
+---
+
+## Overview
+
+Delete an alert rule by ID. Ownership is enforced -- only the rule creator can delete it.
+
+Returns `204 No Content` on success with an empty body.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+<RequestExample>
+```bash cURL
+curl -X DELETE "https://ws.klarity.trade/stream/alert-rules/abc123-def456" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+```
+</RequestExample>
+
+<ResponseExample>
+```
+204 No Content
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**404 - Rule not found or not owned by user:**
+
+```json
+{
+  "error": "Alert rule not found",
+  "code": "NOT_FOUND"
+}
+```

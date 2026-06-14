@@ -2,13 +2,14 @@
 
 ## About this project
 
-- Public documentation for Klarity's data services, built on [Mintlify](https://mintlify.com).
+- Public documentation for the Klarity ecosystem (a prediction-market trading terminal and the tools around it), built on [Mintlify](https://mintlify.com).
 - Pages are MDX files with YAML frontmatter. Navigation and site config live in `docs.json`.
-- Documents three consumable surfaces: the **Telegram monitor** and **X (Twitter) monitor** realtime WebSocket streams, and the **UMA API** (REST).
-- Payload and endpoint shapes must match the service source — do not invent fields. Sources:
-  - Telegram stream: `klarity-telegram-monitor/src/websocket.ts`
-  - X stream: `klarity-x-monitor/src/websocket.ts`
-  - UMA API: `klarity-uma-api/src/routes/*` and `src/server.ts`
+- Documents these consumable surfaces:
+  - **Klarity API** (the core prediction-market data platform — REST + SSE) under the **API Reference** tab: markets, events/discovery, **Hyperliquid (HIP-4)**, users, leaderboard, clusters, funding, cohorts, correlations, alert rules, copy trading, and live trade/wallet streams. Source: the `klarity-toolsets` monorepo (`apps/api`, `apps/stream`). These pages are **OpenAPI-driven** — each page's frontmatter references a spec file at the repo root as `openapi: <file> <METHOD> <path>` (`openapi-api.yaml`, `openapi-users.yaml`, `openapi-stream.yaml`, `openapi-hyperliquid.yaml`). To change a shape, edit the spec (ideally regenerate it from the toolsets route schemas) — do not invent fields.
+  - **Realtime streams** — the **Telegram monitor** and **X (Twitter) monitor** WebSocket feeds. Sources: `klarity-telegram-monitor/src/websocket.ts`, `klarity-x-monitor/src/websocket.ts`.
+  - **UMA API** (REST). Source: `klarity-uma-api/src/routes/*` and `src/server.ts`.
+- Payload and endpoint shapes must match the service source — do not invent fields.
+- **Hyperliquid terminology:** use Hyperliquid's native terms — **questions** (containers, ≈ Polymarket events) and **outcomes** (tradeable binaries, ≈ Polymarket markets). Standalone (question-less) outcomes exist and surface as single-outcome cards. Do not reintroduce "market"/"event" wording for HIP-4.
 
 ## Terminology
 

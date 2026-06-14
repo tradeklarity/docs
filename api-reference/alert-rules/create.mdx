@@ -1,0 +1,106 @@
+---
+title: 'Create Rule'
+openapi: openapi-stream.yaml POST /alert-rules
+description: Create a new alert rule for the authenticated user
+---
+
+## Overview
+
+Create a new alert rule. Supports multiple alert types with configurable conditions and delivery channels (webhook or SSE).
+
+**Alert types:**
+
+| Type | Description | Key condition fields |
+|------|-------------|---------------------|
+| `whale_trade` | Large notional trades | `minNotionalUsd` |
+| `insider_activity` | New wallets with large positions | `minNotionalUsd` |
+| `smart_money` | High win-rate wallet trades | `minNotionalUsd` |
+| `wallet_activity` | Tracked wallet activity | `walletAddresses` (required) |
+| `price_threshold` | Price crossing thresholds | `priceDirection`, `priceThreshold` |
+| `volume_spike` | Volume surge detection | `volumeMultiplier` |
+| `holder_delta` | Holder balance changes | `holderType`, `holderDeltaMin` |
+
+**Limits:** Maximum 20 alert rules per user. Cooldown period (`cooldownMinutes`) prevents alert spam.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response
+
+Returns `201` with the created rule wrapped in a `rule` envelope:
+
+<ResponseField name="rule" type="object">
+  The created alert rule object containing `id`, `userId`, `name`, `type`, `enabled`, `marketSlugs`, `walletAddresses`, `condition`, `delivery`, `cooldownMinutes`, `createdAt`, `updatedAt`, and `lastFiredAt`.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://ws.klarity.trade/stream/alert-rules" \
+  -H "Content-Type: application/json" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..." \
+  -d '{
+    "name": "Whale Alert on Trump Market",
+    "type": "whale_trade",
+    "enabled": true,
+    "marketSlugs": ["will-trump-win-2024"],
+    "condition": { "minNotionalUsd": 50000 },
+    "delivery": { "type": "sse" },
+    "cooldownMinutes": 5
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201
+{
+  "rule": {
+    "id": "abc123-def456",
+    "userId": "user_789",
+    "name": "Whale Alert on Trump Market",
+    "type": "whale_trade",
+    "enabled": true,
+    "marketSlugs": ["will-trump-win-2024"],
+    "walletAddresses": null,
+    "condition": { "minNotionalUsd": 50000 },
+    "delivery": { "type": "sse" },
+    "cooldownMinutes": 5,
+    "createdAt": "2026-03-22T10:00:00.000Z",
+    "updatedAt": "2026-03-22T10:00:00.000Z",
+    "lastFiredAt": null
+  }
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**400 - Invalid rule configuration:**
+
+```json
+{
+  "error": "Invalid alert rule",
+  "details": { "issues": [{ "path": ["condition", "minNotionalUsd"], "message": "Expected number, received string" }] }
+}
+```
+
+**400 - Rule limit reached:**
+
+```json
+{
+  "error": "Maximum 20 alert rules per user"
+}
+```

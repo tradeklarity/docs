@@ -1,0 +1,41 @@
+---
+title: 'HIP-4 Correlation Matrix'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/correlations/matrix
+description: Pairwise yes_mid_px correlation matrix across a chosen set of HIP-4 outcomes
+---
+
+Pairwise correlation matrix for an explicit list of HIP-4 outcomes.
+Suitable for heatmap visualisation in portfolio / cross-market dashboards.
+
+Pairs are stored in canonical `(outcomeIdA < outcomeIdB)` order — the
+client can mirror to the lower-left triangle of the matrix as needed.
+
+## Query Parameters
+
+<ParamField query="outcomes" type="string" required>
+  Comma-separated outcome IDs (e.g. `1,2,3,42`). Capped at 50 outcomes
+  per request.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/correlations/matrix?outcomes=1,2,3,7,11"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/correlations/matrix?outcomes=1,2,3,7,11',
+);
+const { markets, pairs, meta } = await res.json();
+// Render a heatmap: rows/cols from `markets`, cells from `pairs`
+// where pairs.outcomeIdA < pairs.outcomeIdB.
+```
+</CodeGroup>
+
+<Note>
+  Pairs are returned only when correlations have been computed and stored
+  for the requested set. Missing cells should be displayed as "no data"
+  in the matrix.
+</Note>

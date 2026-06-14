@@ -1,0 +1,37 @@
+---
+title: 'HIP-4 User Positions'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/users/{address}/positions
+description: Open HIP-4 positions for a user with HIP-4-correct math
+---
+
+Returns the user's open HIP-4 positions. Position math is HIP-4-aware — the
+`Split`, `Merge`, `Negate`, and `Settlement` operations are properly handled
+(not just CLOB Buy/Sell).
+
+Reads from `hl_positions` (userFills-derived) when the address is tracked,
+falling back to `hl_outcome_wallet_current` (CLOB-only) for the long tail of
+untracked addresses.
+
+`tradeCount` is always reported as `0` from this endpoint; use
+[`/hyperliquid/users/:address/fills`](/api-reference/hyperliquid/get-user-fills)
+for fill-level detail.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/users/0xabc123.../positions"
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/users/0xabc123.../positions');
+const { data, meta } = await res.json();
+// data[0]: { outcomeId, side, netSize, notional, tradeCount, lastFillTs }
+```
+</CodeGroup>

@@ -1,0 +1,47 @@
+---
+title: 'Signal Stats'
+openapi: openapi-stream.yaml GET /top-trader-signals/stats
+description: Get system-wide statistics for the top trader signals feature
+---
+
+## Overview
+
+Returns system-level metrics about the copy trading signal system: how many wallets are tracked, how many SSE clients are connected, and configuration parameters.
+
+<Info>
+Legacy path `/copy-trading/stats` works identically and is maintained for backwards compatibility.
+</Info>
+
+## Response
+
+<ResponseField name="trackedWallets" type="integer">
+  Number of top trader wallets currently being monitored
+</ResponseField>
+
+<ResponseField name="connectedClients" type="integer">
+  Number of SSE clients currently connected to the signal stream
+</ResponseField>
+
+<ResponseField name="lastRefreshAt" type="string|null">
+  ISO 8601 timestamp of the last roster refresh, or `null` if never refreshed
+</ResponseField>
+
+<ResponseField name="topN" type="integer">
+  Configured maximum number of top traders to track (default: 100)
+</ResponseField>
+
+<ResponseField name="minSmartScore" type="number">
+  Configured minimum smart score threshold for inclusion in the roster
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/top-trader-signals/stats"
+```
+</RequestExample>
+
+## Related Endpoints
+
+- [`GET /top-trader-signals/stream`](/api-reference/copy-trading/stream) — Stream live signals
+- [`GET /top-trader-signals/traders`](/api-reference/copy-trading/get-traders) — List tracked traders
+- [`GET /top-trader-signals/traders/:address`](/api-reference/copy-trading/get-trader) — Get individual trader details

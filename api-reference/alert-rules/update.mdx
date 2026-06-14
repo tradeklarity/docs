@@ -1,0 +1,92 @@
+---
+title: 'Update Rule'
+openapi: openapi-stream.yaml PUT /alert-rules/{ruleId}
+description: Update an existing alert rule (all fields optional)
+---
+
+## Overview
+
+Update an existing alert rule. All fields are optional (partial update). Ownership is enforced -- only the rule creator can update it.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response
+
+Returns `200` with the updated rule wrapped in a `rule` envelope:
+
+<ResponseField name="rule" type="object">
+  The updated alert rule object containing `id`, `userId`, `name`, `type`, `enabled`, `marketSlugs`, `walletAddresses`, `condition`, `delivery`, `cooldownMinutes`, `createdAt`, `updatedAt`, and `lastFiredAt`.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+# Disable a rule
+curl -X PUT "https://ws.klarity.trade/stream/alert-rules/abc123-def456" \
+  -H "Content-Type: application/json" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..." \
+  -d '{"enabled": false}'
+
+# Update condition threshold
+curl -X PUT "https://ws.klarity.trade/stream/alert-rules/abc123-def456" \
+  -H "Content-Type: application/json" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..." \
+  -d '{"condition": {"minNotionalUsd": 100000}}'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "rule": {
+    "id": "abc123-def456",
+    "userId": "user_789",
+    "name": "Whale Alert",
+    "type": "whale_trade",
+    "enabled": false,
+    "marketSlugs": ["will-trump-win-2024"],
+    "walletAddresses": null,
+    "condition": { "minNotionalUsd": 50000 },
+    "delivery": { "type": "sse" },
+    "cooldownMinutes": 5,
+    "createdAt": "2026-03-22T10:00:00.000Z",
+    "updatedAt": "2026-03-22T14:00:00.000Z",
+    "lastFiredAt": null
+  }
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**400 - Invalid update data:**
+
+```json
+{
+  "error": "Invalid update payload",
+  "details": { "issues": [{ "path": ["cooldownMinutes"], "message": "Expected number, received string" }] }
+}
+```
+
+**404 - Rule not found or not owned by user:**
+
+```json
+{
+  "error": "Alert rule not found",
+  "code": "NOT_FOUND"
+}
+```

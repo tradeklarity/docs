@@ -1,0 +1,37 @@
+---
+title: Get Tracker Stats
+openapi: openapi-stream.yaml GET /wallets/stats
+description: Debug endpoint showing wallet tracker status
+---
+
+## Overview
+
+Returns statistics about the wallet tracker service. Useful for debugging and monitoring.
+
+## Response
+
+<ResponseField name="trackedWallets" type="integer">
+  Total number of unique wallets being tracked across all users
+</ResponseField>
+
+<ResponseField name="connectedClients" type="integer">
+  Number of active SSE client connections
+</ResponseField>
+
+<ResponseField name="isConnected" type="boolean">
+  Whether the upstream RTDS connection is active
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL curl "https://ws.klarity.trade/stream/wallets/stats" ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "trackedWallets": 42,
+  "connectedClients": 15,
+  "isConnected": true
+}
+```
+</ResponseExample>

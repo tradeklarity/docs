@@ -1,0 +1,39 @@
+---
+title: 'Get HIP-4 Outcome Whales'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/{outcomeId}/whales
+description: Whale holders currently active in a HIP-4 outcome
+---
+
+Returns addresses currently holding a HIP-4 outcome where the wallet meets the
+whale criteria:
+
+- `portfolio_value >= WHALE_PORTFOLIO_MIN_USD`, **or**
+- per-market notional `>= WHALE_TRADE_LARGE_USD`
+
+Sorted by per-market notional descending. Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="outcomeId" type="integer" required>
+  HIP-4 outcome ID (numeric)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Max whales to return (1-100)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/123/whales?limit=20"
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/outcomes/123/whales?limit=20');
+const { data, meta } = await res.json();
+// meta.thresholds reports the active whalePortfolioMinUsd / whaleTradeLargeUsd values.
+```
+</CodeGroup>

@@ -1,0 +1,53 @@
+---
+title: 'Cross-Venue Identity'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/wallets/{address}/identity
+description: Resolve a HL wallet to its unified cross-venue trader (PM / HL / Kalshi)
+---
+
+Returns the unified `traderId` and any linked Polymarket / Hyperliquid / Kalshi
+addresses for a given HL wallet, with the confidence score and supporting
+evidence (on-chain funding events that link the venues).
+
+Returns a stub response with `traderId: null` and `confidenceScore: 0` when the
+wallet is not yet linked.
+
+Backed by `cross_venue_traders` and `cross_venue_identity_evidence`, populated
+by the daily `link-traders` sync job.
+
+Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Response
+
+The response is a discriminated union on `traderId`:
+
+- **Found** — `traderId` is a string, `confidenceScore > 0`, `evidence[]` is populated
+- **Not found** — `traderId: null`, `confidenceScore: 0`, `evidence: []`
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/wallets/0xabc123.../identity"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/wallets/0xabc123.../identity',
+);
+const identity = await res.json();
+if (identity.traderId === null) {
+  // Not yet linked across venues.
+} else {
+  // identity.addresses: { polymarket, hyperliquid, kalshi }
+  // identity.confidenceScore: number (0-1)
+  // identity.evidence: Array<{ evidenceType, fundingSource, amount,
+  //                            pmEventAt, hlEventAt, confidenceContribution, computedAt }>
+}
+```
+</CodeGroup>

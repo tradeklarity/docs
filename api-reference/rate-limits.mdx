@@ -1,0 +1,42 @@
+---
+title: Rate Limits
+description: 'Request limits and throttling behavior'
+---
+
+## Limits
+
+| Type              | Limit            | Window                               |
+| ----------------- | ---------------- | ------------------------------------ |
+| REST API requests | 1,000            | Per minute, per IP                   |
+| SSE connections   | No message limit | Counts as 1 request for the duration |
+
+## Throttling Behavior
+
+When you exceed the rate limit, the API returns a `429 Too Many Requests` response:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "traceId": "abc-123-def"
+}
+```
+
+<Note>
+  Rate limits are applied per IP address. If you're behind a shared proxy or NAT, all requests from
+  that IP count toward the same limit.
+</Note>
+
+## Best Practices
+
+| Practice              | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| Use SSE streams       | For real-time data, use SSE instead of polling REST endpoints                      |
+| Cache responses       | Cache market analytics and holder data (refreshes every ~5 minutes)                |
+| Batch discovery       | Use the `/markets/discover` POST endpoint instead of fetching markets individually |
+| Respect `Retry-After` | When rate-limited, wait for the duration specified in the `Retry-After` header     |
+
+## SSE Connections
+
+SSE streams are long-lived connections that count as a single request. There is no per-message rate limit within a stream. The server sends a keepalive every 30 seconds to keep the connection alive.
+
+If you open multiple SSE connections from the same IP, each connection counts as one request toward your rate limit at the time of connection.

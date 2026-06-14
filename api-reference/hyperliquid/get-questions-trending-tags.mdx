@@ -1,0 +1,47 @@
+---
+title: 'HIP-4 Questions Trending Tags'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/questions/trending-tags
+description: Trending HIP-4 tags (underlying / class / period) ranked by 24h volume
+---
+
+Returns trending HIP-4 metadata tags ranked by 24h volume. Mirrors the
+Polymarket [`GET /events/trending-tags`](/api-reference/events/get-trending-tags)
+endpoint but draws its taxonomy from the parsed structured outcome metadata
+rather than a free-form tag list.
+
+For HL the "taxonomy" is the three structured columns on `hl_outcomes`:
+
+- `underlying` — e.g. `BTC`, `ETH`, `SOL`
+- `class` — HIP-4 class (e.g. `priceBinary`, `range`)
+- `period` — recurring market period (e.g. `1d`, `1h`)
+
+Each returned tag is annotated with its dimension (`type`) and includes the
+24h volume + outcome count + unique outcome count. Volume is sourced from
+`hl_outcome_trades_raw` over the trailing 24h (deduplicated by `tid`).
+
+Outcomes that don't expose a parsed metadata column (older "Akami"-style
+non-priceBinary outcomes leave these columns empty) are excluded.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="50">
+  Per-dimension result cap (1-100). The response merges three independent
+  result sets (`underlying`, `class`, `period`), each capped at `limit`.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/questions/trending-tags?limit=50"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/questions/trending-tags?limit=50',
+);
+const { tags, meta } = await res.json();
+// tags[0]: { name, type: 'underlying'|'class'|'period',
+//            outcomeCount, volume24h, uniqueOutcomes }
+```
+</CodeGroup>

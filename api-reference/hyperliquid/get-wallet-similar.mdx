@@ -1,0 +1,48 @@
+---
+title: 'HIP-4 Similar Wallets'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/wallets/{address}/similar
+description: Top-K wallets with similar HIP-4 trading behaviour
+---
+
+Returns the top-K Hyperliquid wallets with the highest Jaccard similarity on
+shared traded outcome_ids. Mirrors the Polymarket
+[`GET /wallets/{address}/similar`](/api-reference/clusters/get-similar-wallets)
+endpoint but is Jaccard-only (no funding linkage — HL is on a different
+chain).
+
+Reads from `hl_wallet_similarity`, an append-only table populated daily by
+the `compute-hl-wallet-similarity` clustering job (LSH candidate generation
++ exact Jaccard). Pairs are stored canonically (`address_a < address_b`); the
+query unions both sides so the input address can be either side of a pair.
+
+Returns an empty `similarWallets` array when no pairs exist (e.g. a brand new
+wallet or one that has only traded markets nobody else has).
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of counterparties to return (1-100)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/wallets/0xabc123.../similar?limit=20"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/wallets/0xabc123.../similar?limit=20',
+);
+const { address, similarWallets, meta } = await res.json();
+// similarWallets[0]: { otherAddress, jaccardSimilarity, sharedMarkets,
+//                      computedAt }
+```
+</CodeGroup>

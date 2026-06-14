@@ -1,0 +1,103 @@
+---
+title: Insider Tracker Stream (Authenticated)
+openapi: openapi-stream.yaml GET /insider-tracker/stream
+description: SSE stream of insider trade alerts with per-user configurable thresholds
+---
+
+## Headers
+
+<ParamField header="x-user-id" type="string">
+  User identifier (defaults to "anonymous")
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="since" type="string">
+  ISO 8601 timestamp. Historical trades since this time are sent as `event: trade` before live streaming begins.
+</ParamField>
+
+## SSE Events
+
+All trades (live and backfill) use the same `event: trade` format with the unified `TradeAlertEvent` schema.
+
+### `event: system`
+
+```json
+{ "type": "connected", "config": { "notionalMin": 10000, "uniqueMarketsMax": 5, "maxAccountAgeHours": null } }
+```
+
+Config updates while connected:
+
+```json
+{ "type": "config_updated", "config": { "notionalMin": 5000, "uniqueMarketsMax": 10, "maxAccountAgeHours": 24 } }
+```
+
+### `event: trade`
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-20T14:30:00.000Z",
+  "wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe",
+  "notionalUsd": 15000,
+  "size": 25000,
+  "price": 0.6,
+  "side": "BUY",
+  "outcome": "Yes",
+  "marketSlug": "will-trump-win-2024",
+  "eventSlug": "2024-presidential-election",
+  "marketTitle": "Will Donald Trump win the 2024 US Presidential Election?",
+  "marketImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/trump.png",
+  "marketId": "0x1234567890abcdef",
+  "tokenId": "12345",
+  "txHash": "0xabc123...",
+  "tags": ["politics", "elections"],
+  "portfolioValueUsd": 15000,
+  "winRate": 0.67,
+  "totalRealizedPnlUsd": 12500,
+  "marketsTraded": 3,
+  "isWhale": false,
+  "isSmartMoney": false,
+  "isInsider": true,
+  "ageHours": 24.5,
+  "traderName": "CryptoWhale42",
+  "profileImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/avatars/abc123.jpg"
+}
+```
+
+Optional fields for whale trades: `bidLiquidityUsd`, `askLiquidityUsd`, `spreadPct`.
+
+<RequestExample>
+```bash cURL
+curl -N "https://ws.klarity.trade/stream/insider-tracker/stream?since=2024-01-20T00:00:00Z" \
+  -H "x-user-id: my-user-id"
+```
+
+```typescript TypeScript
+const es = new EventSource('https://ws.klarity.trade/stream/insider-tracker/stream?since=2024-01-20T00:00:00Z');
+
+es.addEventListener('trade', (e) => {
+  const trade: TradeAlertEvent = JSON.parse(e.data);
+});
+
+es.addEventListener('system', (e) => {
+  const msg = JSON.parse(e.data);
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: system
+data: {"type":"connected","config":{"notionalMin":10000,"uniqueMarketsMax":5,"maxAccountAgeHours":null}}
+
+event: trade
+data: {"id":"abc123","timestamp":"2024-01-20T12:00:00.000Z","wallet":"0x5aa981...","notionalUsd":12000,...}
+
+: heartbeat
+
+event: trade
+data: {"id":"def456","timestamp":"2024-01-20T14:30:00.000Z","wallet":"0x5aa981...","notionalUsd":15000,...}
+
+```
+</ResponseExample>

@@ -1,0 +1,33 @@
+---
+title: 'User Perpetual Fills'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/users/{address}/fills
+description: Recent perp fills for a wallet with funding rate and liquidation context
+---
+
+Returns the most recent perpetual fills for an address.
+
+The `dir` field distinguishes the kind of fill:
+- `Open Long` / `Close Long` / `Open Short` / `Close Short` — standard CLOB fills
+- `Funding` — funding rate cash-flow (look at `fundingRate`)
+- `Liquidation` — forced close (look at `liquidationPx`)
+
+`startPosition` is the signed `szi` immediately before this fill, so post-fill
+position = `startPosition + signed(sz)`.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum address.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="50">
+  Number of fills to return (max 200).
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/users/0xabc.../fills?limit=100"
+```

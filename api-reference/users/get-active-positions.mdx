@@ -1,0 +1,107 @@
+---
+title: 'Active Positions'
+openapi: openapi-users.yaml GET /users/{address}/positions
+description: Get open positions for a user
+---
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Wallet address (0x format)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="100">
+  Maximum positions to return (max: 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Positions to skip
+</ParamField>
+
+## Response
+
+<ResponseField name="address" type="string">
+  User's wallet address (lowercase)
+</ResponseField>
+
+<ResponseField name="positions" type="array">
+  <Expandable title="Position object">
+    <ResponseField name="tokenId" type="string">
+      CLOB token ID
+    </ResponseField>
+    <ResponseField name="realizedPnl" type="number">
+      Realized profit/loss in USDC
+    </ResponseField>
+    <ResponseField name="amount" type="number">
+      Current position size (shares held)
+    </ResponseField>
+    <ResponseField name="totalBought" type="number">
+      Total shares bought for this position
+    </ResponseField>
+    <ResponseField name="avgPrice" type="number">
+      Average entry price per share (null if unavailable)
+    </ResponseField>
+    <ResponseField name="eventTitle" type="string">
+      Event title
+    </ResponseField>
+    <ResponseField name="marketQuestion" type="string">
+      Market question
+    </ResponseField>
+    <ResponseField name="outcomeTitle" type="string">
+      Outcome title (e.g. "Yes", "No")
+    </ResponseField>
+    <ResponseField name="iconUrl" type="string">
+      Market icon URL (nullable)
+    </ResponseField>
+    <ResponseField name="currentPrice" type="number">
+      Current market price for this outcome (nullable)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  <ResponseField name="limit" type="integer">
+    Limit used
+  </ResponseField>
+  <ResponseField name="offset" type="integer">
+    Offset used
+  </ResponseField>
+  <ResponseField name="nextOffset" type="integer">
+    Next offset for pagination (null if no more results)
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://api.klarity.trade/users/0x204f72f35326db932158cba6adff0b9a1da95e14/positions?limit=10"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "address": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+  "positions": [
+    {
+      "tokenId": "10048466155779778...",
+      "realizedPnl": 42.5,
+      "amount": 150.0,
+      "totalBought": 200.0,
+      "avgPrice": 0.42,
+      "eventTitle": "2024 Presidential Election",
+      "marketQuestion": "Will Trump win?",
+      "outcomeTitle": "Yes",
+      "iconUrl": "https://polymarket.com/images/...",
+      "currentPrice": 0.65
+    }
+  ],
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "nextOffset": null
+  }
+}
+```
+</ResponseExample>

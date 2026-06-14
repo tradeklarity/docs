@@ -1,0 +1,198 @@
+---
+title: 'Test Rule'
+openapi: openapi-stream.yaml POST /alert-rules/{ruleId}/test
+description: Dry-run test of an alert rule against current state
+---
+
+## Overview
+
+Perform a dry-run test of an alert rule. The response shape varies by rule type:
+
+- **Trade-based rules** (`whale_trade`, `insider_activity`, `smart_money`, `wallet_activity`) -- Returns the rule's engine status (whether it's loaded and active), not a live evaluation.
+- **Metric-based rules** (`price_threshold`, `volume_spike`, `holder_delta`) -- Evaluates the rule condition against current ClickHouse market data and reports whether it would fire.
+
+Ownership is enforced -- only the rule creator can test it.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response (Trade-Based Rules)
+
+<ResponseField name="ruleId" type="string">
+  Rule ID.
+</ResponseField>
+
+<ResponseField name="ruleName" type="string">
+  Rule name.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Alert rule type.
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  Whether the rule is enabled.
+</ResponseField>
+
+<ResponseField name="loaded" type="boolean">
+  Whether the rule is loaded in the evaluation engine.
+</ResponseField>
+
+<ResponseField name="dryRun" type="boolean">
+  Always `true`.
+</ResponseField>
+
+<ResponseField name="traceId" type="string">
+  Request trace ID.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable status message explaining the rule state.
+</ResponseField>
+
+<ResponseField name="condition" type="object">
+  Rule condition parameters.
+</ResponseField>
+
+<ResponseField name="delivery" type="object">
+  Delivery summary with `type` and `hasWebhookUrl` fields.
+</ResponseField>
+
+<ResponseField name="cooldownMinutes" type="integer">
+  Cooldown period in minutes.
+</ResponseField>
+
+## Response (Metric-Based Rules)
+
+<ResponseField name="ruleId" type="string">
+  Rule ID.
+</ResponseField>
+
+<ResponseField name="ruleName" type="string">
+  Rule name.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Alert rule type.
+</ResponseField>
+
+<ResponseField name="dryRun" type="boolean">
+  Always `true`.
+</ResponseField>
+
+<ResponseField name="traceId" type="string">
+  Request trace ID.
+</ResponseField>
+
+<ResponseField name="wouldFire" type="boolean">
+  Whether the rule would fire based on current market data.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable evaluation result.
+</ResponseField>
+
+<ResponseField name="currentValue" type="number" nullable>
+  Current metric value from ClickHouse (e.g., current price, volume pct, holder delta).
+</ResponseField>
+
+<ResponseField name="threshold" type="number" nullable>
+  Configured threshold for comparison.
+</ResponseField>
+
+<ResponseField name="marketSlugs" type="array" nullable>
+  Market slugs that match the condition (only present when `wouldFire` is true).
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+# Test a trade-based rule
+curl -X POST "https://ws.klarity.trade/stream/alert-rules/abc123-def456/test" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+
+# Test a metric-based rule
+curl -X POST "https://ws.klarity.trade/stream/alert-rules/xyz789/test" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+```
+</RequestExample>
+
+<ResponseExample>
+```json Trade-based rule response
+{
+  "ruleId": "abc123-def456",
+  "ruleName": "Whale Alert",
+  "type": "whale_trade",
+  "enabled": true,
+  "loaded": true,
+  "dryRun": true,
+  "traceId": "req-001",
+  "message": "Rule is active in the engine and will fire when matching trades occur.",
+  "condition": { "minNotionalUsd": 50000 },
+  "delivery": { "type": "sse", "hasWebhookUrl": false },
+  "cooldownMinutes": 5
+}
+```
+
+```json Metric-based rule response (would fire)
+{
+  "ruleId": "xyz789",
+  "ruleName": "Price Below 30c",
+  "type": "price_threshold",
+  "dryRun": true,
+  "traceId": "req-002",
+  "wouldFire": true,
+  "message": "2 market(s) currently below threshold 0.3.",
+  "currentValue": 0.25,
+  "threshold": 0.3,
+  "marketSlugs": ["will-trump-win-2024", "will-biden-run-2028"]
+}
+```
+
+```json Metric-based rule response (would not fire)
+{
+  "ruleId": "xyz789",
+  "ruleName": "Price Below 30c",
+  "type": "price_threshold",
+  "dryRun": true,
+  "traceId": "req-003",
+  "wouldFire": false,
+  "message": "No markets currently below 0.3. Sample current price: 0.65",
+  "currentValue": 0.65,
+  "threshold": 0.3
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**404 - Rule not found or not owned by user:**
+
+```json
+{
+  "error": "Alert rule not found",
+  "code": "NOT_FOUND"
+}
+```
+
+**400 - Evaluation failure:**
+
+```json
+{
+  "error": "Failed to evaluate rule: ClickHouse query timeout",
+  "code": "VALIDATION_ERROR"
+}
+```

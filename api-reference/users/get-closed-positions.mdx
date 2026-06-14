@@ -1,0 +1,143 @@
+---
+title: 'Closed Positions'
+openapi: 'GET /users/{address}/closed-positions'
+description: 'Get settled positions with realized P&L for a user'
+---
+
+## Overview
+
+Returns paginated list of closed (settled) positions for a trader with realized P&L and market metadata. Positions are sorted by close date with most recent first.
+
+**Use this endpoint for:**
+
+- Portfolio history and closed trade analysis
+- Realized P&L calculation and reporting
+- Historical position review
+
+<Card title="Active Positions" icon="chart-bar" href="/api-reference/users/get-active-positions">
+  For currently open positions, use `GET /users/{address}/positions`.
+</Card>
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Wallet address (0x format)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="100">
+  Number of positions per page (max: 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Pagination offset
+</ParamField>
+
+## Response
+
+<ResponseField name="address" type="string">
+  User's wallet address (lowercase)
+</ResponseField>
+
+<ResponseField name="positions" type="array">
+  <Expandable title="Closed position object">
+    <ResponseField name="tokenId" type="string">
+      CLOB token ID
+    </ResponseField>
+    <ResponseField name="realizedPnl" type="number">
+      Realized profit/loss in USD
+    </ResponseField>
+    <ResponseField name="amount" type="number">
+      Final position size at close
+    </ResponseField>
+    <ResponseField name="totalBought" type="number">
+      Total amount purchased
+    </ResponseField>
+    <ResponseField name="avgPrice" type="number">
+      Average entry price
+    </ResponseField>
+    <ResponseField name="closedAt" type="string">
+      ISO 8601 timestamp when position was closed
+    </ResponseField>
+    <ResponseField name="eventTitle" type="string">
+      Event title (nullable)
+    </ResponseField>
+    <ResponseField name="marketQuestion" type="string">
+      Market question text (nullable)
+    </ResponseField>
+    <ResponseField name="outcomeTitle" type="string">
+      Outcome title - Yes/No (nullable)
+    </ResponseField>
+    <ResponseField name="iconUrl" type="string">
+      Market icon URL (nullable)
+    </ResponseField>
+    <ResponseField name="currentPrice" type="number">
+      Current market price (nullable)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  <ResponseField name="limit" type="integer">
+    Limit used
+  </ResponseField>
+  <ResponseField name="offset" type="integer">
+    Offset used
+  </ResponseField>
+  <ResponseField name="nextOffset" type="integer">
+    Next offset for pagination (null if no more results)
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL curl
+  "https://api.klarity.trade/users/0x204f72f35326db932158cba6adff0b9a1da95e14/closed-positions?limit=10"
+  ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "address": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+  "positions": [
+    {
+      "tokenId": "10048466155779778...",
+      "realizedPnl": 245.50,
+      "amount": 0,
+      "totalBought": 150.5,
+      "avgPrice": 0.42,
+      "closedAt": "2024-10-15T18:45:00.000Z",
+      "eventTitle": "2024 Presidential Election",
+      "marketQuestion": "Will Trump win?",
+      "outcomeTitle": "Yes",
+      "iconUrl": "https://polymarket.com/images/...",
+      "currentPrice": 0.89
+    }
+  ],
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "nextOffset": 10
+  }
+}
+```
+</ResponseExample>
+
+## See Also
+
+<Card
+  title="Get Active Positions"
+  icon="chart-bar"
+  href="/api-reference/users/get-active-positions"
+>
+  Get currently open positions for a user
+</Card>
+
+<Card title="Get User Trades" icon="swap" href="/api-reference/users/get-user-trades">
+  Get executed trades from Polymarket activity
+</Card>
+
+<Card title="Get PnL History" icon="chart-line" href="/api-reference/users/get-pnl-history">
+  Get cumulative profit/loss over time
+</Card>

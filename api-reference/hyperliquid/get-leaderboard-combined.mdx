@@ -1,0 +1,129 @@
+---
+title: 'Combined Leaderboard (HIP-4 + Perps)'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/leaderboard/combined
+description: Cross-product trader leaderboard combining HIP-4 (predictions) and perpetuals PnL
+---
+
+Top HL traders ranked by **combined HIP-4 + perps PnL**. Each row breaks out the
+HIP-4 stats, perp stats, and the combined totals so the frontend can show one
+unified ranking without losing the per-venue detail.
+
+Reads from `hl_combined_leaderboard_serving` — a Refreshable Materialized View
+that joins `hl_wallet_stats` and `hl_perp_wallet_stats` on `address` via a
+`UNION DISTINCT` universe + `LEFT JOIN`s so wallets active on only one venue
+still appear (with zeros on the other). Refresh cadence: every 5 min.
+
+Rate limit: 60 requests/minute. Response cached for 60s.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="100">
+  Page size (1-500)
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Opaque cursor returned as `nextCursor` from a previous page
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="combinedPnl">
+  Sort field. One of: `hip4Pnl`, `perpPnl`, `combinedPnl`, `combinedVolume`.
+</ParamField>
+
+<ParamField query="sortOrder" type="string" default="DESC">
+  `ASC` or `DESC`
+</ParamField>
+
+<ParamField query="minPnl" type="number">
+  Filter to traders with combined PnL ≥ this value.
+</ParamField>
+
+<ParamField query="minVolume" type="number">
+  Filter to traders with combined volume ≥ this value.
+</ParamField>
+
+<ParamField query="address" type="string">
+  Filter to a single 0x-prefixed address (lowercased before lookup).
+</ParamField>
+
+## Response Shape
+
+```typescript
+{
+  rows: Array<{
+    address: string;
+    rank: number;
+    combined: {
+      totalPnl: number;     // HIP-4 + perp totalPnl
+      realizedPnl: number;
+      openPnl: number;      // includes perp fundingPnl
+      totalVolume: number;
+      portfolioValue: number;
+    };
+    hip4: {
+      realizedPnl: number;
+      openPnl: number;
+      totalPnl: number;
+      totalVolume: number;
+      winRate: number;
+      closedPositions: number;
+      activePositions: number;
+      portfolioValue: number;
+      smartScore: number;
+    };
+    perps: {
+      realizedPnl: number;
+      openPnl: number;
+      fundingPnl: number;
+      totalPnl: number;
+      totalVolume: number;
+      winRate: number;
+      closedPositions: number;
+      activePositions: number;
+      longCount: number;
+      shortCount: number;
+      liquidationCount: number;
+      portfolioValue: number;
+      largestPositionUsd: number;
+      smartScore: number;
+    };
+    accountAgeHours: number;
+    lastActiveAt: string | null;
+    updatedAt: string;
+  }>;
+  total: number;
+  updatedAt: string;
+  nextCursor: string | null;
+}
+```
+
+## Examples
+
+<CodeGroup>
+```bash Top 100 by combined PnL
+curl "https://api.klarity.trade/hyperliquid/leaderboard/combined?limit=100"
+```
+
+```bash Top 50 by perps PnL
+curl "https://api.klarity.trade/hyperliquid/leaderboard/combined?sortBy=perpPnl&limit=50"
+```
+
+```bash Whales — combined PnL ≥ $50k, combined volume ≥ $1M
+curl "https://api.klarity.trade/hyperliquid/leaderboard/combined?minPnl=50000&minVolume=1000000"
+```
+
+```bash One address (cross-product slice)
+curl "https://api.klarity.trade/hyperliquid/leaderboard/combined?address=0xaaaa...aaaa"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/leaderboard/combined?sortBy=combinedPnl&limit=100',
+);
+const { rows, total, updatedAt, nextCursor } = await res.json();
+// Combined PnL = HIP-4 (realized + open) + perps (realized + open + funding)
+rows[0].combined.totalPnl;
+// Per-venue detail still surfaced for the dashboard breakdown
+rows[0].hip4.realizedPnl;
+rows[0].perps.fundingPnl;
+```
+</CodeGroup>

@@ -1,0 +1,44 @@
+---
+title: 'HIP-4 Cluster Detail'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/clusters/{id}
+description: Metadata for a HIP-4 wallet cluster
+---
+
+Returns metadata for a HL wallet cluster — `memberCount`, `totalVolume`,
+`avgPnl`, `dominantMarkets`, `modularity`. Optionally includes the list of
+member addresses.
+
+Clusters are produced by the daily HL clustering pipeline writing to
+`hl_wallet_clusters` and `hl_cluster_metadata`.
+
+## Path Parameters
+
+<ParamField path="id" type="integer" required>
+  Cluster ID
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="includeMembers" type="boolean" default="false">
+  Include member addresses in the response
+</ParamField>
+
+<ParamField query="limit" type="integer" default="50">
+  Max members to return (1-500). Only used when `includeMembers=true`.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/clusters/42?includeMembers=true&limit=20"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/clusters/42?includeMembers=true&limit=20',
+);
+const { clusterId, memberCount, totalVolume, avgPnl, dominantMarkets, modularity, members } =
+  await res.json();
+```
+</CodeGroup>

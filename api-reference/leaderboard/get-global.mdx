@@ -1,0 +1,111 @@
+---
+title: 'Global Leaderboard'
+openapi: 'GET /leaderboard/global'
+description: 'Get the global trader leaderboard with performance metrics, sorting, and filtering'
+---
+
+Returns the global leaderboard of Polymarket traders ranked by performance. Supports sorting by any metric, filtering by various criteria, and optional advanced analytics including risk-adjusted returns (Sharpe, Sortino, Calmar), streaks, and composite scores.
+
+### Key Features
+
+- **Comprehensive ranking** -- top 5,000 traders by volume
+- **Flexible sorting** -- sort by PnL, volume, win rate, smart score, or any advanced metric
+- **Advanced analytics** -- risk-adjusted returns, streaks, Kelly criterion, composite scores
+- **Filtering** -- narrow results by volume, PnL, win rate, smart score, position count, or activity status
+- **Profile enrichment** -- includes display names and avatars from Polymarket
+
+### Basic vs Advanced Mode
+
+By default, the endpoint returns basic trader metrics. Set `advanced=true` to include risk-adjusted returns, streaks, composite scores, and enable filtering.
+
+### Example Requests
+
+**Top 10 traders by PnL:**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/global?limit=10"
+```
+
+**Top traders by smart score (with advanced metrics):**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/global?limit=10&sortBy=smart_score&advanced=true"
+```
+
+**Filter: high win rate, active traders only:**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/global?advanced=true&minWinRate=0.6&isActive=true&sortBy=smart_score"
+```
+
+**High volume traders with positive PnL:**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/global?advanced=true&minVolume=100000&minPnl=0&sortBy=volume"
+```
+
+**Top Sharpe ratio traders (minimum 20 positions):**
+
+```bash
+curl "https://api.klarity.trade/leaderboard/global?advanced=true&sortBy=sharpe&minPositions=20"
+```
+
+### Sort Options
+
+**Basic sort columns** (always available):
+
+| Value | Description |
+| --- | --- |
+| `pnl` / `overall_pnl` | Total realized profit/loss |
+| `volume` / `total_volume` | Total trading volume |
+| `win_rate` / `winRate` | Win rate percentage |
+| `current_value` / `currentValue` | Current portfolio value |
+| `active_positions` / `activePositions` | Number of open positions |
+| `total_closed_positions` | Total closed positions |
+
+**Advanced sort columns** (requires `advanced=true`):
+
+| Value | Description |
+| --- | --- |
+| `smart_score` / `smartScore` / `score` | Composite smart score (0-100) |
+| `sharpe` / `sharpe_ratio` | Sharpe ratio |
+| `sortino` / `sortino_ratio` | Sortino ratio |
+| `calmar` / `calmar_ratio` | Calmar ratio |
+| `max_drawdown` / `maxDrawdown` | Maximum drawdown |
+| `roi` | Return on investment |
+| `win_rate_weighted` | Volume-weighted win rate |
+| `confidence_score` | Confidence score |
+
+### Filter Parameters
+
+All filters require `advanced=true` to be effective.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `minVolume` / `maxVolume` | number | Total trading volume range (USD) |
+| `minPnl` / `maxPnl` | number | Total P&L range (USD) |
+| `minSmartScore` / `maxSmartScore` | number | Smart score range (0-100) |
+| `minWinRate` / `maxWinRate` | number | Win rate range (0-1, e.g., 0.6 = 60%) |
+| `minPositions` / `maxPositions` | integer | Closed position count range |
+| `isActive` | boolean | Filter by active traders (traded in last 7 days) |
+
+### Smart Score
+
+The composite smart score (0-100) combines multiple performance dimensions:
+
+| Component | Weight | Description |
+| --- | --- | --- |
+| Profitability | 30% | ROI and absolute PnL |
+| Risk Efficiency | 25% | Sharpe ratio and drawdown |
+| Consistency | 20% | Win rate and streak stability |
+| Volume | 15% | Total trading volume |
+| Experience | 10% | Number of closed positions |
+
+### Notes
+
+- The leaderboard is computed from the top 5,000 traders by volume
+- Advanced metrics are refreshed every 30 minutes
+- Profile data (displayName, avatarUrl) is cached for 24 hours
+- `winRate` is calculated from closed positions only
+- `winRateWeighted` weights each position by its volume
+- Filters only apply when `advanced=true` is set

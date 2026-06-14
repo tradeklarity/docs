@@ -1,0 +1,59 @@
+---
+title: 'List HIP-4 Outcomes'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes
+description: Paginated list of Hyperliquid HIP-4 outcomes with mid prices and 24h volume
+---
+
+Returns Hyperliquid HIP-4 outcomes (tradeable binary contracts) with full metadata, current mid prices (yesMidPx/noMidPx), and 24h volume.
+
+**Terminology:**
+- **Outcome** = tradeable binary (≈ Polymarket market)
+- **Question** = container grouping outcomes (≈ Polymarket event)
+- **Standalone outcome** = outcome with no question wrapper (HIP-4-specific)
+
+For a unified discovery experience with questions and embedded outcomes, use `POST /hyperliquid/questions/discover`. For outcome-level drilling, use this endpoint or `GET /hyperliquid/outcomes/{outcomeId}`.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Page size (max 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Offset for pagination
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by status: `active` or `resolved`
+</ParamField>
+
+<ParamField query="underlying" type="string">
+  Filter by underlying asset symbol (e.g. `BTC`, `ETH`)
+</ParamField>
+
+<ParamField query="search" type="string">
+  Case-insensitive search on `name` or `description`
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="first_seen_at">
+  Sort field: `volume_24h`, `expiry_at`, `first_seen_at`, `outcome_id`
+</ParamField>
+
+<ParamField query="sortOrder" type="string" default="desc">
+  Sort direction: `asc` or `desc`
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes?limit=10&status=active&sortBy=volume_24h"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/outcomes?limit=10&status=active&sortBy=volume_24h',
+);
+const { data, meta } = await res.json();
+```
+</CodeGroup>

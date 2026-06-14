@@ -1,0 +1,105 @@
+---
+title: 'Category Performance'
+openapi: 'GET /users/{address}/category-performance'
+description: 'Get per-category performance breakdown for a trader'
+---
+
+## Overview
+
+Returns P&L, volume, position count, and win rate broken down by market category (tag). Useful for understanding a trader's strengths and weaknesses across different market types (politics, sports, crypto, etc.).
+
+**Use this endpoint for:**
+
+- Trader profiling by market category
+- Identifying category-specific edge or weakness
+- Building category-level performance dashboards
+
+Data is sourced from the `wallet_tag_stats` table, populated by the `rollup-wallet-advanced-stats` sync job. If no data is available for a trader, the response returns an empty `categories` array with `updatedAt: null`.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Wallet address (0x format)
+</ParamField>
+
+## Response
+
+<ResponseField name="address" type="string">
+  User's wallet address (lowercase)
+</ResponseField>
+
+<ResponseField name="categories" type="array">
+  <Expandable title="Category performance item">
+    <ResponseField name="tag" type="string">
+      Market category tag (e.g. "Politics", "Sports", "Crypto")
+    </ResponseField>
+    <ResponseField name="pnl" type="number">
+      Realized PnL in USD for this category
+    </ResponseField>
+    <ResponseField name="volume" type="number">
+      Total trading volume in USD for this category
+    </ResponseField>
+    <ResponseField name="positionCount" type="number">
+      Number of closed positions in this category
+    </ResponseField>
+    <ResponseField name="winRate" type="number">
+      Win rate for this category (0-1, e.g. 0.72 = 72%)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string | null">
+  ISO timestamp of the most recent data update, or `null` if no data exists for the trader
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL
+  curl "https://api.klarity.trade/users/0x1abe1368601330a310162064e04d3c2628cb6497/category-performance"
+  ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "address": "0x1abe1368601330a310162064e04d3c2628cb6497",
+  "categories": [
+    {
+      "tag": "Politics",
+      "pnl": 12450.32,
+      "volume": 89200.50,
+      "positionCount": 47,
+      "winRate": 0.72
+    },
+    {
+      "tag": "Sports",
+      "pnl": -1230.15,
+      "volume": 34500.00,
+      "positionCount": 22,
+      "winRate": 0.41
+    },
+    {
+      "tag": "Crypto",
+      "pnl": 890.44,
+      "volume": 15300.00,
+      "positionCount": 12,
+      "winRate": 0.58
+    }
+  ],
+  "updatedAt": "2026-03-22T08:30:00.000Z"
+}
+```
+</ResponseExample>
+
+## See Also
+
+<Card title="Get User Details" icon="user" href="/api-reference/users/get-user-details">
+  View comprehensive user profile with balance, P&L summary, and position counts.
+</Card>
+
+<Card
+  title="Get Active Positions"
+  icon="chart-line"
+  href="/api-reference/users/get-active-positions"
+>
+  View currently open positions with current prices and unrealized P&L.
+</Card>

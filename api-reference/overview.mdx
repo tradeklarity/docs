@@ -1,0 +1,191 @@
+---
+title: API Overview
+description: 'REST & streaming API reference for Klarity Toolsets'
+---
+
+Internal API reference for frontend developers. All request/response schemas are auto-generated from OpenAPI specs.
+
+## Base URLs
+
+| Service   | Base URL                          |
+| --------- | --------------------------------- |
+| REST API  | `https://api.klarity.trade`       |
+| Streaming | `https://ws.klarity.trade/stream` |
+
+## REST Endpoints
+
+### Discovery
+
+| Method | Endpoint                                                    | Description                                     |
+| ------ | ----------------------------------------------------------- | ----------------------------------------------- |
+| POST   | [`/markets/discover`](/api-reference/markets/post-discover) | Market discovery with filtering, sorting, deltas |
+| POST   | [`/events/discover`](/api-reference/events/post-discover)   | Event discovery with volume and price tracking   |
+| GET    | [`/events/trending-tags`](/api-reference/events/get-trending-tags) | Trending event tags                        |
+| GET    | [`/events/{slug}`](/api-reference/events/get-event-detail)  | Event detail with markets                        |
+
+### Markets
+
+| Method | Endpoint                                                              | Description                                  |
+| ------ | --------------------------------------------------------------------- | -------------------------------------------- |
+| GET    | [`/markets/{slug}/holders`](/api-reference/markets/get-holders)       | Holders with classification                  |
+| GET    | [`/markets/{slug}/trades`](/api-reference/markets/get-trades)         | Enriched trade history                       |
+| GET    | [`/markets/{slug}/analytics`](/api-reference/markets/get-analytics)   | Aggregated holder counts and PnL by outcome  |
+| GET    | [`/markets/{slug}/whales`](/api-reference/markets/get-whales)         | Whale holders                                |
+| GET    | [`/markets/{slug}/insiders`](/api-reference/markets/get-insiders)     | Insider holders                              |
+| GET    | [`/markets/{slug}/smartmoney`](/api-reference/markets/get-smartmoney) | Smart money holders                          |
+| GET    | [`/markets/{slug}/intelligence`](/api-reference/markets/get-intelligence) | Market intelligence report               |
+| GET    | [`/markets/search`](/api-reference/markets/get-search)                | Search markets                               |
+| GET    | [`/markets/anomalies`](/api-reference/markets/get-anomalies)          | Market anomalies                             |
+| GET    | [`/markets/recently-started`](/api-reference/markets/get-recently-started) | Recently started markets                |
+| GET    | [`/markets/ending-soon`](/api-reference/markets/get-ending-soon)      | Markets ending soon                          |
+
+### Leaderboard
+
+| Method | Endpoint                                                                     | Description              |
+| ------ | ---------------------------------------------------------------------------- | ------------------------ |
+| GET    | [`/leaderboard/global`](/api-reference/leaderboard/get-global)               | Global trader leaderboard |
+| GET    | [`/leaderboard/biggest-movers`](/api-reference/leaderboard/get-biggest-movers) | Biggest movers          |
+
+### Users
+
+| Method | Endpoint                                                                                        | Description               |
+| ------ | ----------------------------------------------------------------------------------------------- | ------------------------- |
+| GET    | [`/users/{address}`](/api-reference/users/get-user-details)                                     | User profile and stats    |
+| GET    | [`/users/{address}/positions`](/api-reference/users/get-active-positions)                       | Open positions            |
+| GET    | [`/users/{address}/closed-positions`](/api-reference/users/get-closed-positions)                | Settled positions         |
+| GET    | [`/users/{address}/trades`](/api-reference/users/get-user-trades)                               | Trade history             |
+| GET    | [`/users/{address}/pnl-history`](/api-reference/users/get-pnl-history)                         | PnL time series           |
+| GET    | [`/users/{address}/category-performance`](/api-reference/users/get-category-performance)        | Performance by category   |
+
+### Clusters
+
+| Method | Endpoint                                                                                     | Description                   |
+| ------ | -------------------------------------------------------------------------------------------- | ----------------------------- |
+| GET    | [`/wallets/{address}/similar`](/api-reference/clusters/get-similar-wallets)                  | Similar wallets               |
+| GET    | [`/wallets/{address}/similar/behavioral`](/api-reference/clusters/get-similar-wallets-behavioral) | Behavioral similarity    |
+| GET    | [`/wallets/{address}/similar/funding`](/api-reference/clusters/get-similar-wallets-funding)  | Funding similarity            |
+| GET    | [`/markets/{slug}/clusters`](/api-reference/clusters/get-market-clusters)                    | Market wallet clusters        |
+| GET    | [`/clusters/{id}`](/api-reference/clusters/get-cluster-details)                              | Cluster details               |
+
+### Funding
+
+| Method | Endpoint                                                                           | Description           |
+| ------ | ---------------------------------------------------------------------------------- | --------------------- |
+| GET    | [`/funding/wallet/{address}`](/api-reference/funding/get-wallet-funding)           | Wallet funding data   |
+| GET    | [`/funding/source/{address}`](/api-reference/funding/get-source-funding)           | Source funding data   |
+| GET    | [`/funding/transfers`](/api-reference/funding/get-transfers)                        | Transfer history      |
+| GET    | [`/funding/stats`](/api-reference/funding/get-stats)                               | Funding stats         |
+| GET    | [`/funding/label/{address}`](/api-reference/funding/get-label)                     | Address label         |
+| GET    | [`/funding/trace/{address}`](/api-reference/funding/get-trace)                     | Trace funding paths   |
+| GET    | [`/funding/shared-source`](/api-reference/funding/get-shared-source)               | Shared source wallets |
+
+### Kalshi
+
+| Method | Endpoint                                                                          | Description            |
+| ------ | --------------------------------------------------------------------------------- | ---------------------- |
+| GET    | `/kalshi/markets`                            | List Kalshi markets    |
+| GET    | `/kalshi/markets/{ticker}`             | Market detail          |
+| GET    | `/kalshi/markets/{ticker}/trades`      | Trade history          |
+| GET    | `/kalshi/markets/{ticker}/candlesticks` | OHLCV data             |
+| GET    | `/kalshi/markets/{ticker}/orderbook`       | Orderbook              |
+| GET    | `/kalshi/events`                              | List events            |
+| GET    | `/kalshi/events/{eventTicker}`          | Event detail           |
+| GET    | `/kalshi/series`                              | Series (categories)    |
+
+### Cross-Platform
+
+| Method | Endpoint                                                                   | Description          |
+| ------ | -------------------------------------------------------------------------- | -------------------- |
+| GET    | `/cross-platform/matches`     | Matched markets      |
+| GET    | `/cross-platform/arbitrage` | Arbitrage opportunities |
+
+## Streaming Endpoints (SSE)
+
+### Trade Streams
+
+| Method | Endpoint                                                                  | Description          |
+| ------ | ------------------------------------------------------------------------- | -------------------- |
+| GET    | [`/markets/{slug}/stream`](/api-reference/markets/stream)                 | Market trade stream  |
+| GET    | [`/trades/stream`](/api-reference/realtime/global-trade-stream)           | Global trade stream  |
+| GET    | [`/trades/stats`](/api-reference/realtime/global-trade-stats)             | Stream stats         |
+
+### Wallet Tracker
+
+| Method | Endpoint                                                                         | Description            |
+| ------ | -------------------------------------------------------------------------------- | ---------------------- |
+| POST   | [`/wallets/stream-ticket`](/api-reference/wallet-tracker/auth-stream-ticket)     | Get stream auth ticket |
+| POST   | [`/wallets/subscribe`](/api-reference/wallet-tracker/subscribe)                   | Subscribe to wallet    |
+| POST   | [`/wallets/unsubscribe`](/api-reference/wallet-tracker/unsubscribe)               | Unsubscribe            |
+| GET    | [`/wallets/tracked`](/api-reference/wallet-tracker/tracked)                       | List tracked wallets   |
+| GET    | [`/wallets/stream`](/api-reference/wallet-tracker/stream)                         | Wallet trade stream    |
+| GET    | [`/wallets/stats`](/api-reference/wallet-tracker/stats)                           | Tracker stats          |
+
+### Insider Tracker
+
+| Method | Endpoint                                                                          | Description          |
+| ------ | --------------------------------------------------------------------------------- | -------------------- |
+| GET    | [`/insider-tracker/stream`](/api-reference/insider-tracker/stream)                | Insider stream (auth)|
+| GET    | [`/insider-tracker/public/stream`](/api-reference/insider-tracker/public-stream)  | Public insider stream|
+| GET    | [`/insider-tracker/config`](/api-reference/insider-tracker/get-config)            | Get config           |
+| POST   | [`/insider-tracker/config`](/api-reference/insider-tracker/update-config)         | Update config        |
+| GET    | [`/insider-tracker/stats`](/api-reference/insider-tracker/stats)                  | Tracker stats        |
+
+### Smart Money Tracker
+
+| Method | Endpoint                                                                          | Description          |
+| ------ | --------------------------------------------------------------------------------- | -------------------- |
+| GET    | [`/smart-money/public/stream`](/api-reference/smart-money-tracker/public-stream)  | Smart money stream   |
+| GET    | [`/smart-money/stats`](/api-reference/smart-money-tracker/stats)                  | Tracker stats        |
+
+### Funding Stream
+
+| Method | Endpoint                                                                   | Description          |
+| ------ | -------------------------------------------------------------------------- | -------------------- |
+| GET    | `/funding/stream`                  | Funding event stream |
+| GET    | `/funding/stats`                    | Stream stats         |
+
+### Alert Rules
+
+| Method | Endpoint                                                                              | Description          |
+| ------ | ------------------------------------------------------------------------------------- | -------------------- |
+| POST   | [`/alert-rules`](/api-reference/alert-rules/create)                                  | Create alert rule    |
+| GET    | [`/alert-rules`](/api-reference/alert-rules/list)                                    | List alert rules     |
+| GET    | [`/alert-rules/{ruleId}`](/api-reference/alert-rules/get)                            | Get alert rule       |
+| PUT    | [`/alert-rules/{ruleId}`](/api-reference/alert-rules/update)                         | Update alert rule    |
+| DELETE | [`/alert-rules/{ruleId}`](/api-reference/alert-rules/delete)                         | Delete alert rule    |
+| GET    | [`/alert-rules/{ruleId}/history`](/api-reference/alert-rules/history)                | Rule trigger history |
+| GET    | [`/alert-rules/stats`](/api-reference/alert-rules/stats)                             | Alert rules stats    |
+| POST   | [`/alert-rules/{ruleId}/test`](/api-reference/alert-rules/test)                      | Test alert rule      |
+| GET    | [`/alerts/stream`](/api-reference/alert-rules/alerts-stream)                         | Alerts SSE stream    |
+
+### Copy Trading
+
+| Method | Endpoint                                                                              | Description           |
+| ------ | ------------------------------------------------------------------------------------- | --------------------- |
+| GET    | [`/copy-trading/stream`](/api-reference/copy-trading/stream)                         | Copy trading stream   |
+| GET    | [`/copy-trading/traders`](/api-reference/copy-trading/get-traders)                    | List tracked traders  |
+| GET    | [`/copy-trading/traders/{address}`](/api-reference/copy-trading/get-trader)           | Trader detail         |
+| GET    | [`/copy-trading/stats`](/api-reference/copy-trading/stats)                           | Copy trading stats    |
+
+## Common Patterns
+
+### Pagination
+
+Most list endpoints support `limit` and `offset`:
+
+| Parameter | Type    | Default | Description             |
+| --------- | ------- | ------- | ----------------------- |
+| `limit`   | integer | 25      | Maximum items to return |
+| `offset`  | integer | 0       | Items to skip           |
+
+### Error Format
+
+```json
+{
+  "error": "Error message",
+  "details": [],
+  "traceId": "abc-123-def"
+}
+```
+
+See [Error Codes](/api-reference/error-codes) and [Rate Limits](/api-reference/rate-limits) for details.

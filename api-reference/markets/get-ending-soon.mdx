@@ -1,0 +1,49 @@
+---
+title: 'Ending Soon'
+openapi: 'GET /markets/ending-soon'
+description: 'Get active markets closest to their resolution date'
+---
+
+Returns active prediction markets sorted by end date (soonest first). Use this endpoint to find markets that are about to resolve, which often see increased trading activity and price convergence.
+
+### Key Features
+
+- **Soonest resolution first** -- sorted by `end_date` ascending
+- **Active only** -- filters out closed and inactive markets
+- **Future dates only** -- excludes markets past their end date
+- **Lightweight response** -- includes key market metadata and metrics from the serving table
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | 10 | Number of markets to return (1-50) |
+
+### Example Request
+
+```bash
+curl "https://api.klarity.trade/markets/ending-soon?limit=5"
+```
+
+### Response Format
+
+Returns an array of market objects with key metadata:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `markets` | array | Array of market objects |
+| `markets[].slug` | string | Market slug for follow-up API calls |
+| `markets[].question` | string | The market question |
+| `markets[].category` | string | Market category |
+| `markets[].createdAt` | string | ISO-8601 creation timestamp |
+| `markets[].endDate` | string | Expected resolution date |
+| `markets[].volume` | number | Total trading volume in USD |
+| `markets[].liquidity` | number | Current liquidity in USD |
+| `markets[].totalHolders` | number | Total number of holders |
+| `markets[].tags` | string[] | Tags from the parent event |
+
+<Tip>
+  For more advanced filtering of expiring markets, use the
+  [Discover Markets](/api-reference/markets/post-discover) endpoint with `stages: ["resolving"]`
+  or `end_date_min` / `end_date_max` date filters and sort by `end_date` ascending.
+</Tip>

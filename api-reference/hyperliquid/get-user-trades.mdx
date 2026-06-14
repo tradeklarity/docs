@@ -1,0 +1,9 @@
+---
+title: 'HIP-4 User Trades'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/users/{address}/trades
+description: Recent HIP-4 trades for a user
+---
+
+Recent fills for a HL wallet, ordered newest-first. Mirrors the naming convention
+used by the Polymarket `/users/{address}/trades` endpoint; same underlying source
+as `/users/{address}/fills` (which carries the more PnL-oriented framing).

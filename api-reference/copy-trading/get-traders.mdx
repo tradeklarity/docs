@@ -1,0 +1,70 @@
+---
+title: 'Trader Roster'
+openapi: openapi-stream.yaml GET /top-trader-signals/traders
+description: Get list of top traders currently being tracked
+---
+
+## Overview
+
+Returns the current roster of top traders being tracked for signal generation, sorted by rank (highest smart score first). Roster refreshes every 60 minutes from ClickHouse.
+
+<Info>
+Legacy path `/copy-trading/traders` works identically and is maintained for backwards compatibility.
+</Info>
+
+## Response
+
+<ResponseField name="traders" type="array">
+  Array of tracked top trader objects
+  <Expandable title="Trader object">
+    <ResponseField name="address" type="string">
+      Trader wallet address (lowercase hex)
+    </ResponseField>
+    <ResponseField name="rank" type="integer">
+      Rank among tracked traders (1 = highest smart score)
+    </ResponseField>
+    <ResponseField name="smartScore" type="number">
+      Composite smart money score
+    </ResponseField>
+    <ResponseField name="sharpeRatio" type="number">
+      Risk-adjusted return metric (Sharpe ratio)
+    </ResponseField>
+    <ResponseField name="winRate" type="number">
+      Historical win rate as fraction (0-1)
+    </ResponseField>
+    <ResponseField name="totalPnl" type="number">
+      Total realized P&L in USD
+    </ResponseField>
+    <ResponseField name="positionCount" type="integer">
+      Number of positions traded
+    </ResponseField>
+    <ResponseField name="maxDrawdown" type="number">
+      Maximum drawdown as fraction (0-1)
+    </ResponseField>
+    <ResponseField name="currentStreak" type="integer">
+      Current win/loss streak (positive = wins, negative = losses)
+    </ResponseField>
+    <ResponseField name="lastTradeAt" type="string|null">
+      ISO 8601 timestamp of the trader's most recent trade, or `null`
+    </ResponseField>
+    <ResponseField name="addedAt" type="number">
+      Epoch milliseconds when the trader was added to the roster
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of traders in the roster
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/top-trader-signals/traders"
+```
+</RequestExample>
+
+## Related Endpoints
+
+- [`GET /top-trader-signals/stream`](/api-reference/copy-trading/stream) — Stream live signals from these traders
+- [`GET /top-trader-signals/traders/:address`](/api-reference/copy-trading/get-trader) — Get details and signal history for one trader
+- [`GET /top-trader-signals/stats`](/api-reference/copy-trading/stats) — System statistics

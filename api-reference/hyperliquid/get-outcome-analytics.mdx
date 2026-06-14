@@ -1,0 +1,56 @@
+---
+title: 'Get HIP-4 Outcome Analytics'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/{outcomeId}/analytics
+description: Composed per-outcome analytics — volume, holders, top traders, settlement, clusters
+---
+
+Aggregate analytics for a single HIP-4 outcome. Mirrors the Polymarket
+[`GET /markets/:slug/analytics`](/api-reference/markets/get-analytics)
+response shape so cross-venue UIs can render the same overview block on
+both venues.
+
+Composes:
+
+- **Outcome metadata** — outcome id, name, underlying, expiry, resolution
+  state, current YES/NO mid prices, first-seen timestamp.
+- **Volume / trades** — 24h + 7d volume (USDC) and trade counts deduped
+  by `tid` from `hl_outcome_trades_raw`.
+- **Holders breakdown** — total / yes / no / whale / smart money /
+  insider counts. Reads from the reconciled
+  `hl_positions` ∪ `hl_outcome_wallet_current` view joined to
+  `hl_wallet_stats`.
+- **Top holders preview** — top 5 holders by `netSize`.
+- **Recent trades preview** — last 10 trades on the outcome.
+- **Settlement** — `resolvedAt`, `winningSide`, `settlementPrice` from
+  `hl_resolution_events`; `null` while the outcome is active.
+- **Cluster activity** — count of distinct clusters with positions on
+  this outcome.
+
+All queries use `argMax(*, updated_at)` dedup over ReplacingMergeTree
+sources — never `FINAL` (CH 26 throws `ILLEGAL_FINAL`).
+
+## Path Parameters
+
+<ParamField path="outcomeId" type="integer" required>
+  HIP-4 outcome ID (numeric)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/123/analytics"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/outcomes/123/analytics',
+);
+const analytics = await res.json();
+// analytics.outcome.name
+// analytics.volume.volume24h
+// analytics.holders.whale
+// analytics.topHolders[0]
+// analytics.settlement?.winningSide
+```
+</CodeGroup>

@@ -1,0 +1,23 @@
+---
+title: 'Get Perpetual Asset Detail'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets/{coin}
+description: Single perp asset with current mark/oracle/mid/funding/OI/volume
+---
+
+Returns the latest snapshot for a single perp asset. Mark/oracle/mid prices and
+funding rate come from `hl_perp_asset_ctx` (refreshed ~every 15s by the ingest
+worker). Volume + trade counts are computed over the trailing 24h window.
+
+Returns `404` if `coin` is not in `hl_perp_assets`.
+
+## Path Parameters
+
+<ParamField path="coin" type="string" required>
+  Bare perp asset symbol (e.g. `BTC`, `ETH`, `HYPE`).
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/assets/BTC"
+```

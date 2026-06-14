@@ -1,0 +1,95 @@
+---
+title: 'Delivery History'
+openapi: openapi-stream.yaml GET /alert-rules/{ruleId}/history
+description: Get delivery history for an alert rule from ClickHouse
+---
+
+## Overview
+
+Get the delivery history for a specific alert rule. Records are fetched from the `alert_delivery_log` ClickHouse table. Ownership is enforced -- only the rule creator can access its history.
+
+Supports pagination via `limit` and `offset` query parameters.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response
+
+Returns `200` with `history` array and `total` count:
+
+<ResponseField name="history" type="array">
+  Array of delivery log entries from ClickHouse. Each entry uses snake_case field names:
+
+  - `id` (string) -- Delivery log entry ID
+  - `alert_type` (string) -- Alert rule type
+  - `delivery_status` (string) -- Delivery outcome
+  - `delivery_error` (string | null) -- Error message if delivery failed
+  - `attempts` (number) -- Number of delivery attempts
+  - `created_at` (string) -- Timestamp (ClickHouse DateTime format)
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of delivery records for this rule (for pagination).
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/alert-rules/abc123-def456/history?limit=10&offset=0" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "history": [
+    {
+      "id": "delivery-001",
+      "alert_type": "whale_trade",
+      "delivery_status": "delivered",
+      "delivery_error": null,
+      "attempts": 1,
+      "created_at": "2026-03-22 12:30:00"
+    },
+    {
+      "id": "delivery-002",
+      "alert_type": "whale_trade",
+      "delivery_status": "failed",
+      "delivery_error": "Webhook returned 500",
+      "attempts": 3,
+      "created_at": "2026-03-22 11:15:00"
+    }
+  ],
+  "total": 42
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**404 - Rule not found or not owned by user:**
+
+```json
+{
+  "error": "Alert rule not found",
+  "code": "NOT_FOUND"
+}
+```
+
+<Note>
+If ClickHouse is not configured on the stream instance, the response will be `{"history": [], "total": 0}`.
+</Note>

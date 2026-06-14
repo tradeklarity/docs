@@ -1,0 +1,129 @@
+---
+title: 'User Profile'
+openapi: 'GET /users/{address}'
+description: 'Get comprehensive user details including balance, PNL, profile, and positions'
+---
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Wallet address of the user (0x format)
+</ParamField>
+
+## Response
+
+<ResponseField name="address" type="string">
+  The user's wallet address (lowercase)
+</ResponseField>
+
+<ResponseField name="profile" type="object">
+  Polymarket profile data
+  <Expandable title="Profile fields">
+    <ResponseField name="name" type="string | null">
+      User-chosen display name
+    </ResponseField>
+    <ResponseField name="pseudonym" type="string | null">
+      Auto-generated pseudonym
+    </ResponseField>
+    <ResponseField name="displayName" type="string | null">
+      Computed: name if set, otherwise pseudonym
+    </ResponseField>
+    <ResponseField name="profileImage" type="string | null">
+      URL to profile image
+    </ResponseField>
+    <ResponseField name="xUsername" type="string | null">
+      X (Twitter) username
+    </ResponseField>
+    <ResponseField name="verifiedBadge" type="boolean">
+      Whether profile has verified badge
+    </ResponseField>
+    <ResponseField name="createdAt" type="string | null">
+      ISO timestamp of profile creation
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="portfolioValueUsd" type="number">
+  Total portfolio value (positions only) in USD
+</ResponseField>
+
+<ResponseField name="availableBalanceUsd" type="number | null">
+  Available USDC balance (unallocated funds) from on-chain Polygon query. This is the "Available to
+  Trade" balance shown in Polymarket.
+</ResponseField>
+
+<ResponseField name="unrealizedPnlUsd" type="number">
+  Unrealized profit/loss from current open positions in USD
+</ResponseField>
+
+<ResponseField name="totalRealizedPnlUsd" type="number">
+  Total realized profit/loss from closed positions in USD
+</ResponseField>
+
+<ResponseField name="winRatePct" type="number">
+  Win rate percentage (0-1, e.g. 0.65 = 65%)
+</ResponseField>
+
+<ResponseField name="totalGainsUsd" type="number">
+  Total gains (sum of positive realized PnL from closed positions)
+</ResponseField>
+
+<ResponseField name="totalLossesUsd" type="number">
+  Total losses (sum of absolute negative realized PnL from closed positions)
+</ResponseField>
+
+<ResponseField name="totalClosedPositions" type="number">
+  Total number of closed positions
+</ResponseField>
+
+<ResponseField name="totalActivePositions" type="number">
+  Number of currently open positions
+</ResponseField>
+
+<ResponseField name="isPortfolioWhale" type="boolean">
+  Whether user qualifies as portfolio whale (portfolio >= $100k)
+</ResponseField>
+
+<ResponseField name="isSmartMoney" type="boolean">
+  Whether user qualifies as smart money (experienced + profitable traders)
+</ResponseField>
+
+<ResponseField name="isInsider" type="boolean">
+  Whether user qualifies as insider (wallet age < 48h with significant position)
+</ResponseField>
+
+<ResponseField name="proxyWallet" type="string | null">
+  User's Polymarket proxy wallet address (used for on-chain balance lookup)
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL curl "https://api.klarity.trade/users/0x204f72f35326db932158cba6adff0b9a1da95e14" ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "address": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+  "profile": {
+    "name": "swisstony",
+    "pseudonym": "Frail-Possible",
+    "displayName": "swisstony",
+    "profileImage": null,
+    "xUsername": null,
+    "verifiedBadge": false,
+    "createdAt": "2025-07-29T14:46:06.105807Z"
+  },
+  "portfolioValueUsd": 128128.49,
+  "availableBalanceUsd": 1875818.91,
+  "unrealizedPnlUsd": -198606.71,
+  "totalRealizedPnlUsd": 0,
+  "winRatePct": 0.51,
+  "totalClosedPositions": 25212,
+  "totalActivePositions": 262,
+  "isPortfolioWhale": true,
+  "isSmartMoney": false,
+  "isInsider": false,
+  "proxyWallet": "0x204f72f35326db932158cba6adff0b9a1da95e14"
+}
+```
+</ResponseExample>

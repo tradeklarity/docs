@@ -1,0 +1,74 @@
+---
+title: 'Rule Details'
+openapi: openapi-stream.yaml GET /alert-rules/{ruleId}
+description: Retrieve a single alert rule by ID
+---
+
+## Overview
+
+Get a specific alert rule by ID. Ownership is enforced -- only the rule creator can access it.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response
+
+Returns `200` with the rule wrapped in a `rule` envelope:
+
+<ResponseField name="rule" type="object">
+  The alert rule object containing `id`, `userId`, `name`, `type`, `enabled`, `marketSlugs`, `walletAddresses`, `condition`, `delivery`, `cooldownMinutes`, `createdAt`, `updatedAt`, and `lastFiredAt`.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/alert-rules/abc123-def456" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "rule": {
+    "id": "abc123-def456",
+    "userId": "user_789",
+    "name": "Whale Alert",
+    "type": "whale_trade",
+    "enabled": true,
+    "marketSlugs": ["will-trump-win-2024"],
+    "walletAddresses": null,
+    "condition": { "minNotionalUsd": 50000 },
+    "delivery": { "type": "sse" },
+    "cooldownMinutes": 5,
+    "createdAt": "2026-03-22T10:00:00.000Z",
+    "updatedAt": "2026-03-22T10:00:00.000Z",
+    "lastFiredAt": "2026-03-22T12:30:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+**404 - Rule not found or not owned by user:**
+
+```json
+{
+  "error": "Alert rule not found",
+  "code": "NOT_FOUND"
+}
+```

@@ -1,0 +1,86 @@
+---
+title: Smart Money Stream (Public)
+openapi: openapi-stream.yaml GET /smart-money/public/stream
+description: SSE stream of trades from proven profitable traders (no auth)
+---
+
+Fixed thresholds: $50k+ realized PnL, 60%+ win rate, 10+ markets traded, $5k notional min.
+
+## Query Parameters
+
+<ParamField query="since" type="string">
+  ISO 8601 timestamp. Historical trades since this time are sent as `event: trade` before live streaming begins.
+</ParamField>
+
+## SSE Events
+
+### `event: system`
+
+```json
+{ "type": "connected", "config": { "minRealizedPnlUsd": 50000, "minWinRate": 0.6, "minMarketsTraded": 10 } }
+```
+
+### `event: trade`
+
+Same `TradeAlertEvent` schema as all other streams.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-20T14:30:00.000Z",
+  "wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe",
+  "notionalUsd": 25000,
+  "size": 50000,
+  "price": 0.5,
+  "side": "BUY",
+  "outcome": "Yes",
+  "marketSlug": "will-trump-win-2024",
+  "eventSlug": "2024-presidential-election",
+  "marketTitle": "Will Donald Trump win the 2024 US Presidential Election?",
+  "marketImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/trump.png",
+  "marketId": "0x1234567890abcdef",
+  "tokenId": "245",
+  "txHash": "0xabc123...",
+  "tags": ["politics", "elections"],
+  "portfolioValueUsd": 120000,
+  "winRate": 0.72,
+  "totalRealizedPnlUsd": 85000,
+  "marketsTraded": 245,
+  "isWhale": false,
+  "isSmartMoney": true,
+  "isInsider": false,
+  "ageHours": null,
+  "traderName": "ProTrader42",
+  "profileImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/avatars/abc123.jpg"
+}
+```
+
+<RequestExample>
+```bash cURL
+curl -N "https://ws.klarity.trade/stream/smart-money/public/stream"
+
+# With backfill
+curl -N "https://ws.klarity.trade/stream/smart-money/public/stream?since=2024-01-20T00:00:00Z"
+```
+
+```typescript TypeScript
+const es = new EventSource('https://ws.klarity.trade/stream/smart-money/public/stream');
+
+es.addEventListener('trade', (e) => {
+  const trade: TradeAlertEvent = JSON.parse(e.data);
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: system
+data: {"type":"connected","config":{"minRealizedPnlUsd":50000,"minWinRate":0.6,"minMarketsTraded":10}}
+
+: heartbeat
+
+event: trade
+data: {"id":"def456","timestamp":"2024-01-20T14:30:00.000Z","wallet":"0x5aa981...","notionalUsd":25000,...}
+
+```
+</ResponseExample>

@@ -1,0 +1,36 @@
+---
+title: 'Perpetual Whales'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets/{coin}/whales
+description: Whales currently holding a perp (portfolio or position-notional based)
+---
+
+Returns addresses currently holding the perp that satisfy the perp whale predicate:
+
+```
+portfolio_value >= HL_PERPS_WHALE_PORTFOLIO_MIN_USD (default $50k)
+  OR position_notional >= HL_PERPS_WHALE_TRADE_LARGE_USD (default $100k)
+```
+
+The notional threshold is 10x HIP-4's because perp collateral is much smaller
+than notional thanks to leverage — a $10k position is whale-sized on HIP-4 but
+just a small leveraged trade on perps.
+
+Sorted by per-asset notional desc. Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="coin" type="string" required>
+  Bare perp asset symbol.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Number of whales to return (max 100).
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/assets/BTC/whales?limit=20"
+```

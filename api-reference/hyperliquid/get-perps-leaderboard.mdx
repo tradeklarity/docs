@@ -1,0 +1,51 @@
+---
+title: 'Perpetual Leaderboard'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/leaderboard
+description: Global Hyperliquid perpetual trader leaderboard
+---
+
+Global perpetual trader leaderboard ranked by `overallPnl` (realized + open +
+funding PnL) by default. Cursor-based pagination for stable scroll.
+
+Reads from `hl_perp_leaderboard_serving` — a refreshable materialized view
+refreshed every 5 minutes. The serving table includes `smartScore`, account age
+hours, total fills, long/short counts, and a per-trader rank computed inside
+the RMV.
+
+Rate limit: 60 requests/minute. Response cached for 60s.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="100">
+  Page size (1-500).
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Opaque cursor returned as `nextCursor` from a previous page.
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="overall_pnl">
+  Sort field. Accepts both snake_case and camelCase:
+  `pnl` / `overall_pnl`, `realized_pnl`, `open_pnl`, `funding_pnl`,
+  `total_volume`, `win_rate`, `active_positions`, `long_count`, `short_count`,
+  `liquidation_count`, `portfolio_value`, `largest_position_usd`, `smart_score`.
+</ParamField>
+
+<ParamField query="sortOrder" type="string" default="DESC">
+  `ASC` or `DESC`.
+</ParamField>
+
+<ParamField query="advanced" type="boolean" default="false">
+  Reserved for future risk-adjusted metrics. Currently a no-op (perp Sharpe /
+  Sortino are not yet computed by the rollup).
+</ParamField>
+
+## Examples
+
+```bash Top 100 by overall PnL
+curl "https://api.klarity.trade/hyperliquid/perps/leaderboard?limit=100"
+```
+
+```bash Top by funding income
+curl "https://api.klarity.trade/hyperliquid/perps/leaderboard?sortBy=funding_pnl&limit=50"
+```

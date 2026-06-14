@@ -1,0 +1,59 @@
+---
+title: Smart Money Stats
+openapi: openapi-stream.yaml GET /smart-money/stats
+description: Get current smart money tracker statistics and configuration
+---
+
+## Overview
+
+Returns the current state of the smart money tracker including connected client count and the fixed configuration thresholds.
+
+## Response
+
+```json
+{
+  "connectedClients": 5,
+  "config": {
+    "minRealizedPnlUsd": 50000,
+    "minWinRate": 0.6,
+    "minMarketsTraded": 10,
+    "notionalMin": 5000
+  }
+}
+```
+
+| Field                      | Type   | Description                                      |
+| -------------------------- | ------ | ------------------------------------------------ |
+| `connectedClients`         | number | Number of clients connected to the public stream |
+| `config`                   | object | Fixed configuration thresholds                   |
+| `config.minRealizedPnlUsd` | number | Minimum realized PnL in USD                      |
+| `config.minWinRate`        | number | Minimum win rate (0-1)                           |
+| `config.minMarketsTraded`  | number | Minimum markets traded                           |
+| `config.notionalMin`       | number | Minimum trade notional in USD                    |
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/smart-money/stats"
+```
+
+```javascript JavaScript
+const response = await fetch('https://ws.klarity.trade/stream/smart-money/stats');
+const stats = await response.json();
+console.log(`${stats.connectedClients} clients connected`);
+```
+
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "connectedClients": 5,
+  "config": {
+    "minRealizedPnlUsd": 50000,
+    "minWinRate": 0.6,
+    "minMarketsTraded": 10,
+    "notionalMin": 5000
+  }
+}
+```
+</ResponseExample>

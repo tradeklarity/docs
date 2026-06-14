@@ -1,0 +1,196 @@
+---
+title: 'Market Trades'
+openapi: openapi-api.yaml GET /markets/{slug}/trades
+description: Get paginated historical trades for a market with trader classifications
+---
+
+## Overview
+
+Returns paginated historical trades for a market with full trader classifications (whale, smart money, insider) and optional profile data.
+
+**Use this endpoint for:**
+
+- Initial data load / backfill before connecting to real-time stream
+- Fetching historical trades after a disconnect
+- Populating trade history UI
+
+<Card title="Real-Time Stream" icon="bolt" href="/api-reference/markets/stream">
+  For live trade updates, use `GET /markets/{slug}/stream` (SSE).
+</Card>
+
+## Path Parameters
+
+<ParamField path="slug" type="string" required>
+  Market slug identifier (e.g., `russia-x-ukraine-ceasefire-in-2025`)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="25">
+  Maximum number of trades to return (max: 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of trades to skip for pagination
+</ParamField>
+
+<ParamField query="includeProfiles" type="boolean" default="false">
+  Include Polymarket profile data (displayName, profileImage, xUsername, etc). Set to `false` for
+  faster responses (~100ms), `true` to include profiles (~500ms+).
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  <Expandable title="Trade object">
+    <ResponseField name="id" type="string">
+      Unique trade identifier (transaction hash)
+    </ResponseField>
+    <ResponseField name="address" type="string">
+      Wallet address of the trader
+    </ResponseField>
+    <ResponseField name="profile" type="object">
+      Polymarket profile data (null if user has no profile or includeProfiles=false)
+      <Expandable title="Profile fields">
+        <ResponseField name="displayName" type="string">
+          Computed: name if set, otherwise pseudonym
+        </ResponseField>
+        <ResponseField name="name" type="string">
+          User-chosen display name
+        </ResponseField>
+        <ResponseField name="pseudonym" type="string">
+          Auto-generated pseudonym
+        </ResponseField>
+        <ResponseField name="profileImage" type="string">
+          URL to profile image
+        </ResponseField>
+        <ResponseField name="xUsername" type="string">
+          X (Twitter) username
+        </ResponseField>
+        <ResponseField name="verifiedBadge" type="boolean">
+          Whether profile has verified badge
+        </ResponseField>
+        <ResponseField name="createdAt" type="string">
+          ISO 8601 timestamp of profile creation
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="priceUsd" type="number">
+      Price per share in USD (0-1)
+    </ResponseField>
+    <ResponseField name="shares" type="number">
+      Number of shares traded
+    </ResponseField>
+    <ResponseField name="valueUsd" type="number">
+      Total trade value in USD
+    </ResponseField>
+    <ResponseField name="timestamp" type="string">
+      ISO 8601 timestamp of the trade
+    </ResponseField>
+    <ResponseField name="conditionId" type="string">
+      Market condition ID
+    </ResponseField>
+    <ResponseField name="marketSlug" type="string">
+      Market slug
+    </ResponseField>
+    <ResponseField name="eventTitle" type="string">
+      Event title
+    </ResponseField>
+    <ResponseField name="marketQuestion" type="string">
+      Market question
+    </ResponseField>
+    <ResponseField name="outcomeTitle" type="string">
+      Outcome title (Yes/No)
+    </ResponseField>
+    <ResponseField name="iconUrl" type="string">
+      Market icon URL
+    </ResponseField>
+    <ResponseField name="isPortfolioWhale" type="boolean">
+      Whether trader is classified as a whale (portfolio ≥ $100k)
+    </ResponseField>
+    <ResponseField name="isSmartMoney" type="boolean">
+      Whether trader meets smart money criteria
+    </ResponseField>
+    <ResponseField name="isInsider" type="boolean">
+      Whether trader is a new wallet with significant position
+    </ResponseField>
+    <ResponseField name="ageHours" type="number">
+      Trader account age in hours (null if unknown)
+    </ResponseField>
+    <ResponseField name="winRatePct" type="number">
+      Win rate as percentage (0-1), null if unknown
+    </ResponseField>
+    <ResponseField name="totalRealizedPnlUsd" type="number">
+      Total realized PnL in USD across all closed positions
+    </ResponseField>
+    <ResponseField name="closedPositions" type="number">
+      Total number of closed positions
+    </ResponseField>
+    <ResponseField name="portfolioValueUsd" type="number">
+      Current total portfolio value in USD
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  <ResponseField name="marketId" type="string">
+    Condition ID
+  </ResponseField>
+  <ResponseField name="slug" type="string">
+    Market slug
+  </ResponseField>
+  <ResponseField name="limit" type="integer">
+    Limit used
+  </ResponseField>
+  <ResponseField name="offset" type="integer">
+    Offset used
+  </ResponseField>
+  <ResponseField name="hasMore" type="boolean">
+    Whether more trades are available
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://api.klarity.trade/markets/russia-x-ukraine-ceasefire-in-2025/trades?limit=25"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "data": [
+    {
+      "id": "0x8294092345994e7e7f215f88e9c37f94b6f1bc84...",
+      "address": "0xa4879d1610b8091c5374f94e9dd1611008a9a5da",
+      "profile": null,
+      "priceUsd": 0.979,
+      "shares": 7.42,
+      "valueUsd": 7.42,
+      "timestamp": "2025-12-27T11:05:43.000Z",
+      "conditionId": "0x8ee2f1640386310eb5e7ffa596ba9335f2d324e...",
+      "marketSlug": "russia-x-ukraine-ceasefire-in-2025",
+      "eventTitle": "Russia x Ukraine ceasefire in 2025?",
+      "marketQuestion": "Russia x Ukraine ceasefire in 2025?",
+      "outcomeTitle": "",
+      "iconUrl": "https://polymarket-upload.s3.us-east-2.amazonaws.com/...",
+      "isPortfolioWhale": false,
+      "isSmartMoney": false,
+      "isInsider": false,
+      "ageHours": 409.51,
+      "winRatePct": 0.57,
+      "totalRealizedPnlUsd": -246450049,
+      "closedPositions": 29,
+      "portfolioValueUsd": 0
+    }
+  ],
+  "meta": {
+    "marketId": "0x8ee2f1640386310eb5e7ffa596ba9335f2d324e...",
+    "slug": "russia-x-ukraine-ceasefire-in-2025",
+    "limit": 25,
+    "offset": 0,
+    "hasMore": true
+  }
+}
+```
+</ResponseExample>

@@ -1,0 +1,40 @@
+---
+title: 'Get HIP-4 Outcome Smart Money'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/{outcomeId}/smartmoney
+description: Smart-money holders of a HIP-4 outcome
+---
+
+Returns addresses currently holding a HIP-4 outcome that meet all three
+smart-money criteria:
+
+- `closed_position_count >= SMART_MIN_CLOSED`
+- `win_rate >= SMART_MIN_WINRATE`
+- `realized_pnl >= SMART_MIN_PNL_USD`
+
+Sorted by `smartScore` descending. Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="outcomeId" type="integer" required>
+  HIP-4 outcome ID (numeric)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Max smart-money holders to return (1-100)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/123/smartmoney?limit=20"
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/outcomes/123/smartmoney');
+const { data, meta } = await res.json();
+// meta.thresholds reports the active smartMinClosed / smartMinWinRate / smartMinPnlUsd values.
+```
+</CodeGroup>

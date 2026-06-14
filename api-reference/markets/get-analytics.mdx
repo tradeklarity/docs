@@ -1,0 +1,108 @@
+---
+title: 'Market Analytics'
+openapi: openapi-api.yaml GET /markets/{slug}/analytics
+description: Get aggregated holder counts, PnL, and trader types by outcome
+---
+
+## Path Parameters
+
+<ParamField path="slug" type="string" required>
+  Market slug identifier (e.g., `will-trump-win-2024`)
+</ParamField>
+
+## Response
+
+<ResponseField name="holders" type="object">
+  <ResponseField name="yes_holders" type="integer">
+    Number of unique holders for Yes outcome
+  </ResponseField>
+  <ResponseField name="no_holders" type="integer">
+    Number of unique holders for No outcome
+  </ResponseField>
+  <ResponseField name="total_holders" type="integer">
+    Total unique holders (deduplicated)
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="pnl" type="object">
+  <ResponseField name="yes_holders_total_pnl" type="number">
+    Sum of realized PnL for Yes holders (USD)
+  </ResponseField>
+  <ResponseField name="no_holders_total_pnl" type="number">
+    Sum of realized PnL for No holders (USD)
+  </ResponseField>
+  <ResponseField name="total_pnl" type="number">
+    Total realized PnL across all holders (USD)
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="trader_types" type="object">
+  <ResponseField name="yes" type="object">
+    <ResponseField name="insider_holders" type="integer">
+      Fresh wallet holders
+    </ResponseField>
+    <ResponseField name="smart_money_holders" type="integer">
+      Smart money holders
+    </ResponseField>
+    <ResponseField name="whale_holders" type="integer">
+      Portfolio whale holders
+    </ResponseField>
+  </ResponseField>
+  <ResponseField name="no" type="object">
+    <ResponseField name="insider_holders" type="integer">
+      Fresh wallet holders
+    </ResponseField>
+    <ResponseField name="smart_money_holders" type="integer">
+      Smart money holders
+    </ResponseField>
+    <ResponseField name="whale_holders" type="integer">
+      Portfolio whale holders
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  <ResponseField name="marketId" type="string">
+    Condition ID
+  </ResponseField>
+  <ResponseField name="slug" type="string">
+    Market slug
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL curl "https://api.klarity.trade/markets/will-trump-win-2024/analytics" ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "holders": {
+    "yes_holders": 42184,
+    "no_holders": 34234,
+    "total_holders": 76418
+  },
+  "pnl": {
+    "yes_holders_total_pnl": 125000.50,
+    "no_holders_total_pnl": -85000.25,
+    "total_pnl": 40000.25
+  },
+  "trader_types": {
+    "yes": {
+      "insider_holders": 32,
+      "smart_money_holders": 432,
+      "whale_holders": 12
+    },
+    "no": {
+      "insider_holders": 28,
+      "smart_money_holders": 380,
+      "whale_holders": 8
+    }
+  },
+  "meta": {
+    "marketId": "0x8f8783bdabdd500dc401caddd12fea4bfae91543a8ea4458fc38e0539ffd3cb9",
+    "slug": "will-trump-win-2024"
+  }
+}
+```
+</ResponseExample>

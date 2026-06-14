@@ -1,0 +1,125 @@
+---
+title: 'Trade History'
+openapi: 'GET /users/{address}/trades'
+description: 'Get executed trades for a user from Polymarket activity'
+---
+
+## Overview
+
+Returns paginated historical trades for a wallet from the Polymarket activity feed, enriched with market metadata.
+
+**Use this endpoint for:**
+
+- Initial data load / backfill before connecting to wallet tracker stream
+- Fetching historical trades for tracked wallets after a disconnect
+- Populating wallet trade history UI
+
+<Card title="Real-Time Stream" icon="bolt" href="/api-reference/wallet-tracker/stream">
+  For live trade updates across all tracked wallets, use `GET /wallets/stream` (SSE).
+</Card>
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Wallet address (0x format)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="100">
+  Number of trades per page (max: 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Pagination offset
+</ParamField>
+
+## Response
+
+<ResponseField name="address" type="string">
+  User's wallet address (lowercase)
+</ResponseField>
+
+<ResponseField name="trades" type="array">
+  <Expandable title="Trade object">
+    <ResponseField name="txHash" type="string">
+      Transaction hash (nullable)
+    </ResponseField>
+    <ResponseField name="tradeDttm" type="string">
+      Trade timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="tokenId" type="string">
+      CLOB token ID
+    </ResponseField>
+    <ResponseField name="marketId" type="string">
+      Market condition ID (nullable)
+    </ResponseField>
+    <ResponseField name="side" type="string">
+      `"buy"` or `"sell"` (lowercase, nullable)
+    </ResponseField>
+    <ResponseField name="amount" type="number">
+      Number of shares traded
+    </ResponseField>
+    <ResponseField name="price" type="number">
+      Price per share (nullable)
+    </ResponseField>
+    <ResponseField name="eventTitle" type="string">
+      Event title
+    </ResponseField>
+    <ResponseField name="marketQuestion" type="string">
+      Market question
+    </ResponseField>
+    <ResponseField name="outcomeTitle" type="string">
+      Outcome title - Yes/No
+    </ResponseField>
+    <ResponseField name="iconUrl" type="string">
+      Market icon URL (nullable)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  <ResponseField name="limit" type="integer">
+    Limit used
+  </ResponseField>
+  <ResponseField name="offset" type="integer">
+    Offset used
+  </ResponseField>
+  <ResponseField name="nextOffset" type="integer">
+    Next offset for pagination (null if no more results)
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://api.klarity.trade/users/0x204f72f35326db932158cba6adff0b9a1da95e14/trades?limit=10"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "address": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+  "trades": [
+    {
+      "txHash": "0xabc123...",
+      "tradeDttm": "2024-10-07T12:30:00.000Z",
+      "tokenId": "10048466155779778...",
+      "marketId": "0xdef456...",
+      "side": "buy",
+      "amount": 150.5,
+      "price": 0.42,
+      "eventTitle": "2024 Presidential Election",
+      "marketQuestion": "Will Trump win?",
+      "outcomeTitle": "Yes",
+      "iconUrl": "https://polymarket.com/images/..."
+    }
+  ],
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "nextOffset": 10
+  }
+}
+```
+</ResponseExample>

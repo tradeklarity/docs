@@ -1,0 +1,67 @@
+---
+title: 'List Rules'
+openapi: openapi-stream.yaml GET /alert-rules
+description: List all alert rules for the authenticated user
+---
+
+## Overview
+
+Returns all alert rules belonging to the authenticated user.
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response
+
+Returns `200` with a `rules` array. No `count` field is included -- derive the count from the array length.
+
+<ResponseField name="rules" type="array">
+  Array of alert rule objects. Each contains `id`, `userId`, `name`, `type`, `enabled`, `marketSlugs`, `walletAddresses`, `condition`, `delivery`, `cooldownMinutes`, `createdAt`, `updatedAt`, and `lastFiredAt`.
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/alert-rules" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "rules": [
+    {
+      "id": "abc123-def456",
+      "userId": "user_789",
+      "name": "Whale Alert",
+      "type": "whale_trade",
+      "enabled": true,
+      "marketSlugs": [],
+      "walletAddresses": null,
+      "condition": { "minNotionalUsd": 50000 },
+      "delivery": { "type": "sse" },
+      "cooldownMinutes": 5,
+      "createdAt": "2026-03-22T10:00:00.000Z",
+      "updatedAt": "2026-03-22T10:00:00.000Z",
+      "lastFiredAt": null
+    }
+  ]
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```

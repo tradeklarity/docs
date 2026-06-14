@@ -1,0 +1,32 @@
+---
+title: 'User Perpetual Positions'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/users/{address}/positions
+description: Open perp positions for a wallet with current mark prices and unrealized PnL
+---
+
+Returns the wallet's open perpetual positions joined with the latest mark price
+per coin. Positions are signed (`szi > 0` = long, `szi < 0` = short) and closed
+positions tombstone with `szi = 0` (filtered out).
+
+Unrealized PnL is computed at query time:
+
+```
+unrealizedPnl = szi * (markPx - entryPx)
+```
+
+Signed correctly for both sides — longs gain when mark > entry, shorts gain when
+mark < entry.
+
+Mark price comes from `hl_perp_asset_ctx` (latest captured within 1h).
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum address.
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/users/0xabc.../positions"
+```

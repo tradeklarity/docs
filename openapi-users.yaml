@@ -1,0 +1,504 @@
+openapi: 3.0.3
+info:
+  title: Klarity Users API
+  description: User profiles, positions, trades, and PnL history.
+  version: 2.0.0
+servers:
+  - url: https://api.klarity.trade
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /users/{address}:
+    get:
+      summary: Get comprehensive user details including balance, PNL, and profile
+      tags:
+        - Users
+      parameters:
+        - schema:
+            type: string
+            pattern: ^0x[a-fA-F0-9]{40}$
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  profile:
+                    nullable: true
+                    type: object
+                    properties:
+                      name:
+                        nullable: true
+                        type: string
+                      pseudonym:
+                        nullable: true
+                        type: string
+                      displayName:
+                        nullable: true
+                        type: string
+                      profileImage:
+                        nullable: true
+                        type: string
+                      xUsername:
+                        nullable: true
+                        type: string
+                      verifiedBadge:
+                        type: boolean
+                      createdAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - name
+                      - pseudonym
+                      - displayName
+                      - profileImage
+                      - xUsername
+                      - verifiedBadge
+                      - createdAt
+                    additionalProperties: {}
+                  portfolioValueUsd:
+                    type: number
+                  availableBalanceUsd:
+                    nullable: true
+                    type: number
+                  unrealizedPnlUsd:
+                    type: number
+                  totalRealizedPnlUsd:
+                    type: number
+                  totalGainsUsd:
+                    type: number
+                  totalLossesUsd:
+                    type: number
+                  winRatePct:
+                    type: number
+                  totalClosedPositions:
+                    type: number
+                  totalActivePositions:
+                    type: number
+                  isPortfolioWhale:
+                    type: boolean
+                  isSmartMoney:
+                    type: boolean
+                  isInsider:
+                    type: boolean
+                  proxyWallet:
+                    nullable: true
+                    type: string
+                required:
+                  - address
+                  - profile
+                  - portfolioValueUsd
+                  - availableBalanceUsd
+                  - unrealizedPnlUsd
+                  - totalRealizedPnlUsd
+                  - totalGainsUsd
+                  - totalLossesUsd
+                  - winRatePct
+                  - totalClosedPositions
+                  - totalActivePositions
+                  - isPortfolioWhale
+                  - isSmartMoney
+                  - isInsider
+                  - proxyWallet
+                additionalProperties: {}
+  /users/{address}/positions:
+    get:
+      summary: Get aggregated positions for a trader
+      tags:
+        - Users
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            pattern: ^0x[a-fA-F0-9]{40}$
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  positions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tokenId:
+                          type: string
+                        eventTitle:
+                          type: string
+                        marketQuestion:
+                          type: string
+                        outcomeTitle:
+                          type: string
+                        iconUrl:
+                          nullable: true
+                          type: string
+                        currentPrice:
+                          nullable: true
+                          type: number
+                      required:
+                        - tokenId
+                        - eventTitle
+                        - marketQuestion
+                        - outcomeTitle
+                        - iconUrl
+                        - currentPrice
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      nextOffset:
+                        nullable: true
+                        type: number
+                    required:
+                      - limit
+                      - offset
+                      - nextOffset
+                    additionalProperties: false
+                required:
+                  - address
+                  - positions
+                  - pagination
+                additionalProperties: {}
+  /users/{address}/closed-positions:
+    get:
+      summary: Get closed (settled) positions for a trader
+      tags:
+        - Users
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            pattern: ^0x[a-fA-F0-9]{40}$
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  positions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tokenId:
+                          type: string
+                        eventTitle:
+                          type: string
+                        marketQuestion:
+                          type: string
+                        outcomeTitle:
+                          type: string
+                        iconUrl:
+                          nullable: true
+                          type: string
+                        currentPrice:
+                          nullable: true
+                          type: number
+                      required:
+                        - tokenId
+                        - eventTitle
+                        - marketQuestion
+                        - outcomeTitle
+                        - iconUrl
+                        - currentPrice
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      nextOffset:
+                        nullable: true
+                        type: number
+                    required:
+                      - limit
+                      - offset
+                      - nextOffset
+                    additionalProperties: false
+                required:
+                  - address
+                  - positions
+                  - pagination
+                additionalProperties: {}
+  /users/{address}/trades:
+    get:
+      summary: Get executed trades for a trader from Polymarket activity
+      tags:
+        - Users
+      description: Returns recent trades sourced from the Polymarket Data API activity feed.
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            pattern: ^0x[a-fA-F0-9]{40}$
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  trades:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        txHash:
+                          nullable: true
+                          type: string
+                        tradeDttm:
+                          type: string
+                        tokenId:
+                          type: string
+                        marketId:
+                          nullable: true
+                          type: string
+                        side:
+                          nullable: true
+                          type: string
+                        amount:
+                          type: number
+                        price:
+                          nullable: true
+                          type: number
+                        eventTitle:
+                          type: string
+                        marketQuestion:
+                          type: string
+                        outcomeTitle:
+                          type: string
+                        iconUrl:
+                          nullable: true
+                          type: string
+                      required:
+                        - txHash
+                        - tradeDttm
+                        - tokenId
+                        - marketId
+                        - side
+                        - amount
+                        - price
+                        - eventTitle
+                        - marketQuestion
+                        - outcomeTitle
+                        - iconUrl
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      nextOffset:
+                        nullable: true
+                        type: number
+                    required:
+                      - limit
+                      - offset
+                      - nextOffset
+                    additionalProperties: false
+                required:
+                  - address
+                  - trades
+                  - pagination
+                additionalProperties: {}
+  /users/{address}/pnl-history:
+    get:
+      summary: Get historic account PnL time series
+      tags:
+        - Users
+      description: Returns cumulative profit-and-loss data points over time for a user. Proxied from Polymarket PnL API.
+      parameters:
+        - schema:
+            default: all
+            type: string
+            enum:
+              - 1d
+              - 1w
+              - 1m
+              - all
+          in: query
+          name: interval
+          required: false
+        - schema:
+            default: 1d
+            type: string
+            enum:
+              - 1h
+              - 3h
+              - 12h
+              - 18h
+              - 1d
+          in: query
+          name: fidelity
+          required: false
+        - schema:
+            type: string
+            pattern: ^0x[a-fA-F0-9]{40}$
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  interval:
+                    type: string
+                  fidelity:
+                    type: string
+                  history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: number
+                        pnl:
+                          type: number
+                      required:
+                        - timestamp
+                        - pnl
+                      additionalProperties: {}
+                required:
+                  - address
+                  - interval
+                  - fidelity
+                  - history
+                additionalProperties: {}
+  /users/{address}/category-performance:
+    get:
+      summary: Get per-category performance breakdown for a trader
+      tags:
+        - Users
+      description: Returns P&L, volume, position count, and win rate broken down by market category (tag). Data from
+        wallet_tag_stats.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^0x[a-fA-F0-9]{40}$
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag:
+                          type: string
+                        pnl:
+                          type: number
+                        volume:
+                          type: number
+                        positionCount:
+                          type: number
+                        winRate:
+                          type: number
+                      required:
+                        - tag
+                        - pnl
+                        - volume
+                        - positionCount
+                        - winRate
+                      additionalProperties: false
+                  updatedAt:
+                    nullable: true
+                    type: string
+                required:
+                  - address
+                  - categories
+                  - updatedAt
+                additionalProperties: false
+components:
+  schemas: {}

@@ -1,0 +1,48 @@
+---
+title: 'HIP-4 User PnL History'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/users/{address}/pnl-history
+description: Daily cumulative PnL snapshots for a HL wallet
+---
+
+Returns a daily time series of cumulative PnL, volume, win rate, portfolio
+value, and position counts for a Hyperliquid wallet — suitable for rendering
+account PnL charts. Mirrors the Polymarket
+[`GET /users/{address}/pnl-history`](/api-reference/users/get-pnl-history)
+response shape.
+
+Reads from `hl_wallet_stats_daily`, an append-only table populated by the
+`rollup-hl-wallet-stats-daily` job at 00:30 UTC each day. Each row represents
+the end-of-day snapshot of `hl_wallet_stats` for that wallet.
+
+Returns an empty `history` array when the wallet has no snapshots in the
+requested window (e.g. a brand new address); never 404s on a valid address.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="days" type="integer" default="30">
+  Number of trailing days to return (1-365)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/users/0xabc123.../pnl-history?days=30"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/users/0xabc123.../pnl-history?days=30',
+);
+const { address, days, history, meta } = await res.json();
+// history[0]: { day, realizedPnl, openPnl, totalPnl, totalVolume,
+//               winRate, portfolioValue, closedPositionCount,
+//               activePositionCount }
+```
+</CodeGroup>

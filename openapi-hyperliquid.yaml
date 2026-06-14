@@ -1,0 +1,2699 @@
+openapi: 3.1.0
+info:
+  title: Klarity Hyperliquid API
+  version: 1.0.0
+  description: |
+    Hyperliquid HIP-4 prediction-outcomes intelligence — markets, holders, classifications,
+    trades, leaderboard, cohorts, clusters, and cross-venue identity.
+
+    All endpoints read from ClickHouse tables populated by the ingest-worker WebSocket
+    subscriber and the sync rollups (`hl_leaderboard_serving`, `hl_cohort_serving`,
+    `hl_outcome_discover_serving`, `hl_wallet_clusters`, `hl_cluster_metadata`).
+
+    **Note:** These endpoints are served by the main API service at `api.klarity.trade`.
+
+servers:
+  - url: https://api.klarity.trade
+    description: Production API
+  - url: http://localhost:8080
+    description: Local Development
+
+tags:
+  - name: Hyperliquid
+    description: HIP-4 outcomes, holders, trades, users, leaderboard, cohorts, clusters, and identity.
+  - name: Hyperliquid Perps
+    description: Hyperliquid perpetuals (bare coin symbols, signed positions, funding rates).
+
+paths:
+  # ─── Markets ────────────────────────────────────────────────────────────────
+  /hyperliquid/outcomes:
+    get:
+      operationId: listHyperliquidOutcomes
+      summary: List HIP-4 outcomes (tradeable binaries)
+      description: |
+        Paginated list of HIP-4 outcomes with current prices (yesMidPx/noMidPx), full metadata (class, underlying, targetPrice, quoteToken), and 24h volume.
+        Filterable by status (active/resolved), underlying asset, and free-text search.
+
+        **Terminology:** Outcomes are the tradeable binaries (≈ Polymarket markets). For a unified browse experience with questions and embedded outcomes, use `POST /hyperliquid/questions/discover`.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, resolved] }
+          description: Filter by market status
+        - name: underlying
+          in: query
+          schema: { type: string, maxLength: 20 }
+          description: Underlying asset symbol (e.g. `BTC`, `ETH`)
+        - name: search
+          in: query
+          schema: { type: string, maxLength: 200 }
+          description: Case-insensitive search on `name` or `description`
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [volume_24h, expiry_at, first_seen_at, outcome_id]
+            default: first_seen_at
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Paginated outcome list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlOutcome' }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      count: { type: integer }
+                      limit: { type: integer }
+                      offset: { type: integer }
+
+  /hyperliquid/outcomes/discover:
+    post:
+      operationId: discoverHyperliquidOutcomes
+      summary: Discover HIP-4 outcomes (tradeable binaries) with filters, deltas, and stage classification
+      description: |
+        Cursor-paginated outcome discovery with per-window deltas (volume/trades/mid prices/holder counts),
+        stage classification, and full upstream HIP-4 metadata (description, class, underlying, targetPrice, quoteToken).
+
+        **Note:** In Hyperliquid HIP-4, **outcomes** are the tradeable binaries (≈ Polymarket markets), and
+        **questions** are containers that group outcomes (≈ Polymarket events). Use `POST /hyperliquid/questions/discover`
+        for a unified browse feed with embedded outcomes; use this endpoint for deep outcome-level drilling.
+
+        Single-phase query against `hl_outcome_discover_serving` (RMV refreshed every 5 minutes).
+
+        Rate limit: 30 requests/minute.
+      tags: [Hyperliquid]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HlOutcomeDiscoverRequest' }
+      responses:
+        '200':
+          description: Discovered outcomes with deltas, upstream metadata, and lifecycle stage
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlOutcomeDiscoverResponse' }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/questions/trending-tags:
+    get:
+      operationId: getHyperliquidQuestionsTrendingTags
+      summary: Trending HIP-4 tags (underlying / class / period)
+      description: |
+        Returns trending HIP-4 metadata tags ranked by 24h volume. HL has no
+        free-form tag list — the taxonomy is the parsed structured outcome
+        metadata on `hl_outcomes` (`underlying`, `class`, `period`). Each tag
+        is annotated with its dimension (`type`) and includes the 24h volume,
+        outcome count, and unique outcome count. Volume is sourced from
+        `hl_outcome_trades_raw` over the trailing 24h (deduped by `tid`).
+        Outcomes that don't expose a parsed metadata column (older
+        non-priceBinary outcomes) are excluded. Mirrors Polymarket's
+        `GET /events/trending-tags`. Rate limit: 30 requests/minute. Response
+        cached for 5 minutes.
+      tags: [Hyperliquid]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+          description: Per-dimension result cap (response merges three independent result sets).
+      responses:
+        '200':
+          description: Trending tags
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlTrendingTagsResponse' }
+
+  /hyperliquid/questions/discover:
+    post:
+      operationId: discoverHyperliquidQuestions
+      summary: Discover HIP-4 questions (with embedded outcomes), deltas, and stage classification
+      description: |
+        Cursor-paginated question discovery with unified card feed. A **question** groups N outcomes
+        via `namedOutcomeIds`; **standalone** (question-less) outcomes appear as single-outcome cards
+        (the HL equivalent of PM binary events) so the feed is unified for browsing.
+
+        Returns:
+        - Real questions: aggregated volume/trades/holders across namedOutcomeIds
+        - Standalone cards: single outcome's metrics
+        - Full embedded outcome objects by default (PM-style events-with-markets)
+        - Per-window deltas (volume, trades, holders_total/whale/smart_money, price_movement)
+        - Threshold conditions (max 10) with AND/OR logic
+        - Lifecycle stage classification
+
+        Single-phase query against `hl_question_discover_serving` (RMV refreshed every 5 minutes).
+
+        Rate limit: 30 requests/minute.
+      tags: [Hyperliquid]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HlQuestionDiscoverRequest' }
+      responses:
+        '200':
+          description: Discovered questions/cards with deltas, embedded outcomes, and lifecycle stage
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlQuestionDiscoverResponse' }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/questions/{questionId}:
+    get:
+      operationId: getHyperliquidQuestion
+      summary: Get HIP-4 question detail with embedded outcomes
+      description: |
+        Returns full detail for a single HIP-4 question, including:
+        - Question metadata (name, description, fallback outcome, named/settled outcome IDs)
+        - Current aggregated metrics across all namedOutcomes (volume, trades, holders)
+        - Default deltas (1h + 24h volume changes)
+        - Lifecycle stage classification
+        - Full embedded outcome objects (PM-style) ordered by namedOutcomes
+
+        Response uses the same shape as items from `POST /hyperliquid/questions/discover`,
+        suitable for direct rendering. Standalone outcomes are NOT addressable here
+        (use `GET /hyperliquid/outcomes/{outcomeId}`).
+
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema: { type: integer }
+          description: HIP-4 question ID (numeric)
+      responses:
+        '200':
+          description: Question detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/HlQuestionDiscoverItem' }
+        '404':
+          description: Question not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/outcomes/{outcomeId}:
+    get:
+      operationId: getHyperliquidOutcome
+      summary: Get HIP-4 outcome detail with full upstream metadata
+      description: |
+        Returns detail for a single HIP-4 outcome, including:
+        - Outcome metadata (name, description, class, underlying, targetPrice, quoteToken, period)
+        - Container question ID (null for standalone outcomes)
+        - Current prices (yesMidPx, noMidPx), resolution status, and settlement info
+        - 24h and 7d volume and trade counts
+        - Top holders by net position size
+        - Recent trades with enrichment
+
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+      responses:
+        '200':
+          description: Outcome detail with full metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/HlOutcome' }
+        '404':
+          description: Outcome not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/outcomes/{outcomeId}/analytics:
+    get:
+      operationId: getHyperliquidOutcomeAnalytics
+      summary: Aggregate analytics for a HIP-4 outcomes
+      description: |
+        Composes per-outcome metadata, 24h/7d volume + trade counts, holder
+        breakdown (yes/no/whale/smart money/insider), top 5 holders, last
+        10 trades, optional settlement metadata, and the count of distinct
+        clusters with positions on the outcome. Mirrors Polymarket's
+        `GET /markets/{slug}/analytics`. Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+      responses:
+        '200':
+          description: Composed analytics payload
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlOutcomeAnalyticsResponse' }
+        '404':
+          description: Outcome not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/outcomes/{outcomeId}/holders:
+    get:
+      operationId: getHyperliquidOutcomeHolders
+      summary: Top holders of a HIP-4 outcomes (by side)
+      description: |
+        Top holders ranked by net position size. Returns classification badges
+        (`isWhale`, `isInsider`, `isSmartMoney`) plus a composite `smartScore`.
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+        - name: side
+          in: query
+          schema: { type: string, enum: [both, yes, 'no'], default: both }
+          description: Filter by side
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Holders with classification badges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlHolder' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      side: { type: string }
+                      outcomeId: { type: integer }
+
+  /hyperliquid/outcomes/{outcomeId}/whales:
+    get:
+      operationId: getHyperliquidOutcomeWhales
+      summary: Whales currently holding a HIP-4 outcomes
+      description: |
+        Addresses with `portfolio_value >= WHALE_PORTFOLIO_MIN_USD` OR per-market
+        notional `>= WHALE_TRADE_LARGE_USD`. Sorted by per-market notional desc.
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+        - { $ref: '#/components/parameters/ClassificationLimit' }
+      responses:
+        '200':
+          description: Whale holders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlClassifiedHolder' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      outcomeId: { type: integer }
+                      thresholds:
+                        type: object
+                        properties:
+                          whalePortfolioMinUsd: { type: number }
+                          whaleTradeLargeUsd: { type: number }
+
+  /hyperliquid/outcomes/{outcomeId}/insiders:
+    get:
+      operationId: getHyperliquidOutcomeInsiders
+      summary: Insider-flagged holders of a HIP-4 outcomes
+      description: |
+        Addresses with `account_age_hours <= INSIDER_MAX_AGE_HOURS` AND open
+        notional `>= INSIDER_MIN_POSITION_USD`. If the market is resolved, each
+        row includes a `winningSide` flag (true/false/null).
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+        - { $ref: '#/components/parameters/ClassificationLimit' }
+      responses:
+        '200':
+          description: Insider holders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - { $ref: '#/components/schemas/HlClassifiedHolder' }
+                        - type: object
+                          properties:
+                            winningSide:
+                              type: boolean
+                              nullable: true
+                              description: True if holder's side matches the winning side (null when market is active or winning side unknown)
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      outcomeId: { type: integer }
+                      isResolved: { type: boolean }
+                      thresholds:
+                        type: object
+                        properties:
+                          insiderMaxAgeHours: { type: number }
+                          insiderMinPositionUsd: { type: number }
+
+  /hyperliquid/outcomes/{outcomeId}/smartmoney:
+    get:
+      operationId: getHyperliquidOutcomeSmartMoney
+      summary: Smart-money holders of a HIP-4 outcomes
+      description: |
+        Addresses with `closed_position_count >= SMART_MIN_CLOSED`,
+        `win_rate >= SMART_MIN_WINRATE`, and `realized_pnl >= SMART_MIN_PNL_USD`.
+        Sorted by `smartScore` desc. Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+        - { $ref: '#/components/parameters/ClassificationLimit' }
+      responses:
+        '200':
+          description: Smart-money holders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlClassifiedHolder' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      outcomeId: { type: integer }
+                      thresholds:
+                        type: object
+                        properties:
+                          smartMinClosed: { type: integer }
+                          smartMinWinRate: { type: number }
+                          smartMinPnlUsd: { type: number }
+
+  /hyperliquid/outcomes/{outcomeId}/trades:
+    get:
+      operationId: getHyperliquidOutcomeTrades
+      summary: Recent trades for a HIP-4 outcomes
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+          description: ISO-8601 cutoff — only return trades with `fillTs >= since`
+      responses:
+        '200':
+          description: Recent CLOB trades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlTrade' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      outcomeId: { type: integer }
+
+  # ─── Users ──────────────────────────────────────────────────────────────────
+  /hyperliquid/users/{address}:
+    get:
+      operationId: getHyperliquidUserAggregate
+      summary: Composed HIP-4 user view
+      description: |
+        Single-call dashboard payload for a HL wallet: identity, PnL summary,
+        classification badges (whale/insider/smart money), optional risk-adjusted
+        metrics (`advanced=true`), cluster assignment, cross-venue identity, and
+        recent activity counts. Returns null/zero defaults when the wallet has no
+        activity (never 404 on a valid address). Mirrors Polymarket's
+        `GET /users/{address}`. Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+        - name: advanced
+          in: query
+          schema: { type: boolean, default: false }
+          description: Include Sharpe / Sortino / Calmar / maxDrawdown from `hl_wallet_advanced_stats`.
+      responses:
+        '200':
+          description: Composed user view
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlUserAggregateResponse' }
+
+  /hyperliquid/users/{address}/fills:
+    get:
+      operationId: getHyperliquidUserFills
+      summary: Recent HIP-4 fills for a user
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Recent fills with PnL/settlement detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlFill' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      address: { type: string }
+
+  /hyperliquid/users/{address}/trades:
+    get:
+      operationId: getHyperliquidUserTrades
+      summary: Recent HIP-4 trades for a user
+      description: |
+        Recent fills for a HL wallet from `hl_user_fills_raw`, ordered newest-first.
+        Same underlying source as `/users/{address}/fills` — exposed under `trades`
+        to mirror Polymarket's naming convention.
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Recent trades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlFill' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      address: { type: string }
+
+  /hyperliquid/users/{address}/pnl-history:
+    get:
+      operationId: getHyperliquidUserPnlHistory
+      summary: HIP-4 user daily PnL history
+      description: |
+        Daily cumulative PnL snapshots for a HL wallet over the last N days.
+        Reads from `hl_wallet_stats_daily` (one row per address per day, written
+        at 00:30 UTC by the `rollup-hl-wallet-stats-daily` job). Returns an
+        empty `history` array when the wallet has no snapshots in the requested
+        window. Mirrors Polymarket's `GET /users/{address}/pnl-history`.
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+          description: Number of trailing days to return
+      responses:
+        '200':
+          description: Daily PnL time series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlPnlHistoryResponse' }
+
+  /hyperliquid/users/{address}/positions:
+    get:
+      operationId: getHyperliquidUserPositions
+      summary: Open HIP-4 positions for a user (derived live from fills)
+      description: |
+        Open positions with HIP-4-correct math — Split, Merge, Negate, and Settlement
+        operations are handled. Reads from `hl_positions` (userFills-derived) when
+        the address is tracked, falling back to `hl_outcome_wallet_current` (CLOB-only)
+        for the long tail.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+      responses:
+        '200':
+          description: Open positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPosition' }
+                  meta:
+                    type: object
+                    properties:
+                      count: { type: integer }
+                      address: { type: string }
+
+  # ─── Leaderboard + Cohorts ──────────────────────────────────────────────────
+  /hyperliquid/leaderboard:
+    get:
+      operationId: getHyperliquidLeaderboard
+      summary: Global HIP-4 trader leaderboard
+      description: |
+        Top HL traders ranked by realized + open PnL. Use `advanced=true` to include
+        risk-adjusted metrics (Sharpe, Sortino, Calmar, max drawdown). Cursor-based
+        pagination for stable scroll. Mirrors the PM `/leaderboard/global` response
+        shape. Rate limit: 60 requests/minute. Response cached for 60s.
+      tags: [Hyperliquid]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: Opaque cursor from a previous response's `nextCursor`
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            default: overall_pnl
+            enum:
+              - pnl
+              - total_pnl
+              - totalPnl
+              - overall_pnl
+              - overallPnl
+              - realized_pnl
+              - realizedPnl
+              - open_pnl
+              - openPnl
+              - volume
+              - total_volume
+              - totalVolume
+              - win_rate
+              - winRate
+              - active_positions
+              - activePositions
+              - closed_positions
+              - closedPositions
+              - total_closed_positions
+              - totalClosedPositions
+              - current_value
+              - currentValue
+              - portfolio_value
+              - portfolioValue
+              - roi
+              - smart_score
+              - smartScore
+              - score
+              - sharpe
+              - sortino
+              - calmar
+              - max_drawdown
+              - maxDrawdown
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [ASC, DESC, asc, desc], default: DESC }
+        - name: advanced
+          in: query
+          schema: { type: boolean, default: false }
+          description: Include risk-adjusted metrics (Sharpe, Sortino, Calmar, max drawdown)
+      responses:
+        '200':
+          description: Ranked traders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlLeaderboardRow' }
+                  total: { type: integer }
+                  updatedAt: { type: string, format: date-time }
+                  nextCursor:
+                    type: string
+                    nullable: true
+
+  /hyperliquid/leaderboard/combined:
+    get:
+      operationId: getHyperliquidCombinedLeaderboard
+      summary: Cross-product (HIP-4 + perps) trader leaderboard
+      description: |
+        Top HL traders ranked by combined HIP-4 + perps PnL. Each row breaks
+        out HIP-4 stats, perp stats, and the combined totals. Supports filters
+        on `minPnl` / `minVolume` / `address` and cursor-based pagination.
+        Reads from the pre-aggregated RMV `hl_combined_leaderboard_serving`
+        (refreshed every 5 min). Rate limit: 60 requests/minute. Response
+        cached for 60s.
+      tags: [Hyperliquid]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: Opaque cursor from a previous response's `nextCursor`
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            default: combinedPnl
+            enum: [hip4Pnl, perpPnl, combinedPnl, combinedVolume]
+          description: Column to sort by; defaults to `combinedPnl`
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [ASC, DESC, asc, desc], default: DESC }
+        - name: minPnl
+          in: query
+          schema: { type: number }
+          description: Filter to traders with combined PnL >= this value
+        - name: minVolume
+          in: query
+          schema: { type: number, minimum: 0 }
+          description: Filter to traders with combined volume >= this value
+        - name: address
+          in: query
+          schema: { type: string, pattern: '^0x[0-9a-fA-F]{40}$' }
+          description: Filter to a single address (lowercased before lookup)
+      responses:
+        '200':
+          description: Ranked cross-product traders
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlCombinedLeaderboardResponse' }
+
+  /hyperliquid/cohorts:
+    get:
+      operationId: getHyperliquidCohorts
+      summary: HIP-4 trader cohort distribution
+      description: |
+        Returns trader buckets for the requested cohort type with member counts,
+        total volume, total PnL, average win rate, and cohort share. Rate limit:
+        60 requests/minute. Response cached for 60s.
+      tags: [Hyperliquid]
+      parameters:
+        - name: cohort_type
+          in: query
+          schema:
+            type: string
+            enum: [pnl_tier, size_tier, win_rate_tier]
+            default: pnl_tier
+      responses:
+        '200':
+          description: Cohort distribution
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlCohortResponse' }
+
+  # ─── Clusters ───────────────────────────────────────────────────────────────
+  /hyperliquid/clusters/{id}:
+    get:
+      operationId: getHyperliquidCluster
+      summary: Get HIP-4 wallet cluster details
+      description: |
+        Returns metadata for a HL wallet cluster (member_count, total_volume,
+        avg_pnl, dominant_markets, modularity). Optionally includes member addresses.
+      tags: [Hyperliquid]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+          description: Cluster ID
+        - name: includeMembers
+          in: query
+          schema: { type: boolean, default: false }
+          description: Include member addresses in the response
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+          description: Max members to return (only if `includeMembers=true`)
+      responses:
+        '200':
+          description: Cluster detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlClusterDetail' }
+        '404':
+          description: Cluster not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/wallets/{address}/similar:
+    get:
+      operationId: getHyperliquidWalletSimilar
+      summary: Behaviorally similar HIP-4 wallets
+      description: |
+        Top-K HL wallets with the highest Jaccard similarity on shared traded
+        `outcome_id` sets. Reads from `hl_wallet_similarity` (LSH candidates +
+        exact Jaccard, recomputed daily). Pairs are stored canonically with
+        `address_a < address_b`; the query unions both sides so the input
+        address can be either side of a pair. Returns an empty list when the
+        wallet has no similarity data yet. Mirrors Polymarket's
+        `GET /wallets/{address}/similar` but is Jaccard-only (no funding
+        linkage — HL is on a different chain). Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Top-K similar wallets
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlWalletSimilarResponse' }
+
+  /hyperliquid/wallets/{address}/cluster:
+    get:
+      operationId: getHyperliquidWalletCluster
+      summary: Get the HIP-4 cluster a wallet belongs to (if any)
+      description: |
+        Resolves the wallet to its `cluster_id` from `hl_wallet_clusters`, then
+        returns the same metadata shape as `GET /hyperliquid/clusters/{id}`.
+        Returns 404 if the wallet has no cluster assignment.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+      responses:
+        '200':
+          description: Cluster the wallet belongs to
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address: { type: string }
+                  cluster:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      size: { type: integer }
+                      modularity: { type: number }
+                  memberCount: { type: integer }
+                  totalVolume: { type: number }
+                  avgPnl: { type: number }
+                  dominantMarkets:
+                    type: array
+                    items: { type: integer }
+        '404':
+          description: No cluster found for address
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ─── Cross-venue identity ───────────────────────────────────────────────────
+  /hyperliquid/wallets/{address}/identity:
+    get:
+      operationId: getHyperliquidWalletIdentity
+      summary: Resolve cross-venue trader identity for an HL wallet
+      description: |
+        Returns the unified `traderId` and any linked Polymarket / Kalshi addresses,
+        with the confidence score and supporting evidence. Returns a stub response
+        with `confidenceScore=0` if the wallet is not yet linked.
+        Rate limit: 60 requests/minute.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+      responses:
+        '200':
+          description: Cross-venue identity (linked or stub)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/HlIdentityFound' }
+                  - { $ref: '#/components/schemas/HlIdentityNotFound' }
+
+  # ─── AI / intelligence ──────────────────────────────────────────────────────
+  /hyperliquid/outcomes/{outcomeId}/intelligence:
+    get:
+      operationId: getHyperliquidOutcomeIntelligence
+      summary: AI intelligence summary for a HIP-4 outcomes
+      description: |
+        Returns the latest LLM-generated summary for an outcome (model, summary,
+        headline, confidence, generation timestamp). Pre-generated by the
+        `generate-hl-market-intelligence` sync job every 30 minutes for the top
+        outcomes by 24h volume.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+      responses:
+        '200':
+          description: Latest intelligence summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlOutcomeIntelligenceResponse' }
+        '404':
+          description: No summary generated for this outcome yet
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Hyperliquid PERPS — bare-symbol perpetual futures (separate from HIP-4).
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /hyperliquid/perps/assets:
+    get:
+      operationId: listHyperliquidPerpAssets
+      summary: List Hyperliquid perpetual assets
+      description: |
+        Paginated list of perp assets with current mark/oracle/mid prices,
+        funding rate, open interest, and 24h volume. Filterable by category
+        (majors / alts / memes / other) and free-text coin search.
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - name: search
+          in: query
+          schema: { type: string, maxLength: 32 }
+        - name: category
+          in: query
+          schema: { type: string, enum: [majors, alts, memes, other] }
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [volume_24h, open_interest, mark_px, funding, first_seen_at]
+            default: volume_24h
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Paginated perp asset list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpAsset' }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      count: { type: integer }
+                      limit: { type: integer }
+                      offset: { type: integer }
+
+  /hyperliquid/perps/discover:
+    post:
+      operationId: discoverHyperliquidPerps
+      summary: Discover perp assets with filters, deltas, and stage classification
+      description: |
+        Cursor-paginated perp asset discovery with per-window deltas
+        (volume / trades / funding / open interest / mark price) and lifecycle
+        stage (new / building / peak / quiet). Single-phase query against
+        `hl_perp_asset_discover_serving` (RMV refreshed every 5 minutes).
+
+        Rate limit: 30 requests/minute.
+      tags: [Hyperliquid Perps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HlPerpDiscoverRequest' }
+      responses:
+        '200':
+          description: Discovered perp assets with deltas and lifecycle stage
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlPerpDiscoverResponse' }
+
+  /hyperliquid/perps/assets/{coin}:
+    get:
+      operationId: getHyperliquidPerpAsset
+      summary: Get a perp asset detail
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Coin' }
+      responses:
+        '200':
+          description: Perp asset detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/HlPerpAsset' }
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/outcomes/anomalies:
+    get:
+      operationId: getHyperliquidOutcomeAnomalies
+      summary: Recent HIP-4 outcomes anomalies
+      description: |
+        Recent detected anomalies (volume_spike / holder_surge / price_swing)
+        across HIP-4 outcomes. Append-only with a 30-day TTL. Filterable by
+        type, severity, outcome, and detection timestamp. Rate limit: 60/min.
+      tags: [Hyperliquid]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: outcomeId
+          in: query
+          schema: { type: integer, minimum: 0 }
+          description: Filter to a specific outcome
+        - name: anomalyType
+          in: query
+          schema: { type: string, enum: [volume_spike, holder_surge, price_swing] }
+        - name: severity
+          in: query
+          schema: { type: string, enum: [low, medium, high] }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+          description: Only include anomalies detected at or after this ISO-8601 timestamp
+      responses:
+        '200':
+          description: Recent anomalies
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlAnomaliesResponse' }
+
+  /hyperliquid/outcomes/search:
+    get:
+      operationId: searchHyperliquidMarkets
+      summary: Semantic search across HIP-4 outcomes
+      description: |
+        Embeds the free-text query via OpenAI `text-embedding-3-small` (1536-dim
+        via OpenRouter) and ranks active outcomes by cosine similarity over
+        `hl_outcome_embeddings`. Rate limit: 10/min.
+      tags: [Hyperliquid]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 500 }
+          description: Free-text search query
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Top-K outcomes by cosine similarity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlSearchResponse' }
+        '503':
+          description: Embedding service unavailable (OPENROUTER_API_KEY missing or upstream failure)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /hyperliquid/outcomes/{outcomeId}/correlated:
+    get:
+      operationId: getHyperliquidCorrelatedMarkets
+      summary: Top-K correlated HIP-4 outcomes
+      description: |
+        Returns the top-K outcomes whose `yes_mid_px` is correlated with the
+        given outcome (Pearson, 7-day window). Sorted by |correlation| DESC.
+        Computed by the `compute-hl-market-correlations` sync job every 30
+        minutes. Rate limit: 60/min.
+      tags: [Hyperliquid]
+      parameters:
+        - { $ref: '#/components/parameters/OutcomeId' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        - name: minCorrelation
+          in: query
+          schema: { type: number, minimum: 0, maximum: 1, default: 0.3 }
+          description: Minimum |correlation| to include in the response
+      responses:
+        '200':
+          description: Top-K correlated outcomes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlCorrelatedResponse' }
+
+  /hyperliquid/correlations/matrix:
+    get:
+      operationId: getHyperliquidCorrelationMatrix
+      summary: Pairwise correlation matrix for HIP-4 outcomes
+      description: |
+        Pairwise correlation matrix for an explicit list of HIP-4 outcomes.
+        Pairs are stored in canonical `(outcomeIdA < outcomeIdB)` order; the
+        client can mirror to the lower-left triangle of the matrix as needed.
+        Capped at 50 outcomes per request. Rate limit: 30/min.
+      tags: [Hyperliquid]
+      parameters:
+        - name: outcomes
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'Comma-separated outcome IDs (e.g. `1,2,3,42`). 2-50 outcomes.'
+      responses:
+        '200':
+          description: Markets metadata + canonical-ordered correlation pairs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlMatrixResponse' }
+  /hyperliquid/perps/assets/{coin}/holders:
+    get:
+      operationId: getHyperliquidPerpHolders
+      summary: Top holders of a perp asset (by side)
+      description: |
+        Top addresses with open positions on the perp, sorted by absolute size.
+        Side filter: `long` / `short` / `both`. Includes whale / insider / smart-money
+        classification badges and a composite `smartScore`. Rate limit: 60 requests/minute.
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Coin' }
+        - name: side
+          in: query
+          schema: { type: string, enum: [both, long, short], default: both }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Holder list with classification badges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpHolderRow' }
+                  meta:
+                    type: object
+
+  /hyperliquid/perps/assets/{coin}/whales:
+    get:
+      operationId: getHyperliquidPerpWhales
+      summary: Whales currently holding a perp
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Coin' }
+        - { $ref: '#/components/parameters/ClassificationLimit' }
+      responses:
+        '200':
+          description: Whale holders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpClassificationRow' }
+                  meta:
+                    type: object
+
+  /hyperliquid/perps/assets/{coin}/insiders:
+    get:
+      operationId: getHyperliquidPerpInsiders
+      summary: Insider-flagged holders of a perp
+      description: |
+        Addresses with `accountAgeHours <= threshold` AND open position notional
+        >= threshold. The perp insider position threshold is 5x HIP-4 ($500 vs $100)
+        because perps allow 50x leverage — small notionals are too cheap to signal an edge.
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Coin' }
+        - { $ref: '#/components/parameters/ClassificationLimit' }
+      responses:
+        '200':
+          description: Insider-flagged holders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpClassificationRow' }
+                  meta:
+                    type: object
+
+  /hyperliquid/perps/assets/{coin}/smartmoney:
+    get:
+      operationId: getHyperliquidPerpSmartMoney
+      summary: Smart-money holders of a perp
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Coin' }
+        - { $ref: '#/components/parameters/ClassificationLimit' }
+      responses:
+        '200':
+          description: Smart-money holders sorted by smart_score desc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpClassificationRow' }
+                  meta:
+                    type: object
+
+  /hyperliquid/perps/assets/{coin}/trades:
+    get:
+      operationId: getHyperliquidPerpTrades
+      summary: Recent CLOB trades for a perp
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Coin' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Recent trades
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpTradeRow' }
+
+  /hyperliquid/perps/users/{address}/fills:
+    get:
+      operationId: getHyperliquidPerpUserFills
+      summary: Recent perp fills for a user
+      description: |
+        Returns the most recent perp fills for an address. Includes the directional
+        dir (`Open Long` / `Close Long` / `Open Short` / `Close Short` / `Funding` /
+        `Liquidation`) with `fundingRate` (when `dir='Funding'`) and `liquidationPx`
+        (when `dir='Liquidation'`).
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Recent perp fills
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpUserFillRow' }
+
+  /hyperliquid/perps/users/{address}/positions:
+    get:
+      operationId: getHyperliquidPerpUserPositions
+      summary: Open perp positions for a user (with mark prices + unrealized PnL)
+      description: |
+        Returns the user's open perp positions joined with the latest mark price
+        per coin. Unrealized PnL is computed at query time as
+        `szi * (mark_px - entry_px)` — signed, so longs gain when mark > entry
+        and shorts gain when mark < entry.
+      tags: [Hyperliquid Perps]
+      parameters:
+        - { $ref: '#/components/parameters/Address' }
+      responses:
+        '200':
+          description: Open perp positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpUserPositionRow' }
+
+  /hyperliquid/perps/leaderboard:
+    get:
+      operationId: getHyperliquidPerpLeaderboard
+      summary: Global perp trader leaderboard
+      description: |
+        Top perp traders ranked by realized + open + funding PnL. Cursor-based
+        pagination for stable scroll. Reads from `hl_perp_leaderboard_serving`
+        (RMV refreshed every 5 minutes). Rate limit: 60 requests/minute.
+      tags: [Hyperliquid Perps]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum:
+              - pnl
+              - overall_pnl
+              - realized_pnl
+              - open_pnl
+              - funding_pnl
+              - total_volume
+              - win_rate
+              - active_positions
+              - long_count
+              - short_count
+              - liquidation_count
+              - portfolio_value
+              - largest_position_usd
+              - smart_score
+            default: overall_pnl
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [ASC, DESC], default: DESC }
+        - name: advanced
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Leaderboard page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items: { $ref: '#/components/schemas/HlPerpLeaderboardRow' }
+                  total: { type: integer }
+                  updatedAt: { type: string, format: date-time }
+                  nextCursor: { type: string, nullable: true }
+
+  /hyperliquid/perps/cohorts:
+    get:
+      operationId: getHyperliquidPerpCohorts
+      summary: Perp trader cohort distribution
+      description: |
+        Returns trader buckets for the requested cohort type (`pnl_tier` /
+        `size_tier` / `win_rate_tier`) with member counts, total volume,
+        total PnL, average win rate, and cohort share. Reads from
+        `hl_perp_cohort_serving` (RMV refreshed every 10 minutes).
+      tags: [Hyperliquid Perps]
+      parameters:
+        - name: cohort_type
+          in: query
+          schema:
+            type: string
+            enum: [pnl_tier, size_tier, win_rate_tier]
+            default: pnl_tier
+      responses:
+        '200':
+          description: Cohort distribution
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HlPerpCohortResponse' }
+
+# ─── Components ───────────────────────────────────────────────────────────────
+components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    OutcomeId:
+      name: outcomeId
+      in: path
+      required: true
+      schema: { type: integer, minimum: 0 }
+      description: HIP-4 outcome ID (numeric)
+    Address:
+      name: address
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^0x[a-fA-F0-9]{40}$'
+      description: 0x-prefixed Ethereum-style address (40 hex chars)
+    ClassificationLimit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Coin:
+      name: coin
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 32
+        pattern: '^[A-Za-z0-9_-]+$'
+      description: Bare perp asset symbol (BTC / ETH / HYPE / ...)
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        details: { type: object, additionalProperties: true }
+        traceId: { type: string }
+
+    HlOutcome:
+      type: object
+      description: |
+        HIP-4 outcome (tradeable binary) with full upstream metadata.
+        In Hyperliquid, outcomes can exist standalone (no question wrapper) or grouped in questions.
+      properties:
+        outcomeId: { type: integer, description: 'Unique outcome identifier' }
+        questionId:
+          type: integer
+          nullable: true
+          description: 'Container question ID (null for standalone outcomes)'
+        name: { type: string, description: 'Outcome name' }
+        description:
+          type: string
+          description: 'Raw upstream description string (pipe-encoded for price binaries)'
+        class:
+          type: string
+          description: 'HIP-4 class (e.g. `priceBinary`, `categorical`)'
+        underlying:
+          type: string
+          description: 'Underlying asset (e.g. `BTC`, `ETH`, `FIFA2026`)'
+        quoteToken:
+          type: string
+          description: 'Quote token for settlement (e.g. `USDC`)'
+        expiryAt: { type: string, format: date-time, nullable: true }
+        targetPrice:
+          type: number
+          nullable: true
+          description: 'Target price for price binary outcomes (e.g. 95000 for "BTC >= $95k")'
+        period: { type: string, description: 'Outcome period (e.g. daily, weekly)' }
+        sides:
+          type: object
+          properties:
+            yes: { type: string }
+            'no': { type: string }
+        isResolved: { type: boolean }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+        winningSide:
+          type: integer
+          nullable: true
+          description: '0 (YES) or 1 (NO); null until reconciled'
+        yesMidPx: { type: number, nullable: true }
+        noMidPx: { type: number, nullable: true }
+        volume24h: { type: number }
+        trades24h: { type: integer }
+        firstSeenAt: { type: string, format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+
+    HlHolder:
+      type: object
+      description: Holder of a HIP-4 outcomes with classification badges.
+      properties:
+        address: { type: string }
+        side: { type: string, enum: [YES, 'NO'] }
+        netSize: { type: number, description: 'Net position size (shares)' }
+        notional: { type: number, description: 'Position notional in USDC (`abs(netSize) * avgEntryPx`)' }
+        tradeCount: { type: integer }
+        lastFillTs: { type: string, format: date-time }
+        isWhale: { type: boolean }
+        isInsider: { type: boolean }
+        isSmartMoney: { type: boolean }
+        smartScore: { type: number, description: 'Composite smart score (0-100)' }
+
+    HlClassifiedHolder:
+      type: object
+      description: Holder with full wallet-level stats (whale/insider/smart-money endpoints).
+      properties:
+        address: { type: string }
+        side: { type: string, enum: [YES, 'NO'] }
+        netSize: { type: number }
+        notional: { type: number }
+        tradeCount: { type: integer }
+        lastFillTs: { type: string, format: date-time }
+        portfolioValue: { type: number }
+        realizedPnl: { type: number }
+        winRate: { type: number, description: 'Win rate (0-1)' }
+        closedPositionCount: { type: integer }
+        accountAgeHours: { type: number }
+        totalVolume: { type: number }
+        smartScore: { type: number }
+
+    HlTrade:
+      type: object
+      description: CLOB trade fill on a HIP-4 outcomes.
+      properties:
+        tid: { type: integer, description: 'Trade ID (monotonic)' }
+        side: { type: string, enum: [YES, 'NO'] }
+        maker: { type: string }
+        taker: { type: string }
+        aggressorSide:
+          type: string
+          enum: [B, A]
+          description: '`B` = aggressor bought, `A` = aggressor sold'
+        px: { type: number }
+        sz: { type: number }
+        notional: { type: number }
+        fillTs: { type: string, format: date-time }
+        txHash: { type: string }
+
+    HlFill:
+      type: object
+      description: User fill (from `hl_user_fills_raw`) including PnL and settlement detail.
+      properties:
+        tid: { type: integer }
+        outcomeId: { type: integer }
+        side: { type: string, enum: [YES, 'NO'] }
+        aggressorSide:
+          type: string
+          description: 'Raw HL aggressor side (`B` or `A`)'
+        dir:
+          type: string
+          description: 'HIP-4 fill direction (`Buy`, `Sell`, `Split`, `Merge`, `Negate`, `Settlement`)'
+        px: { type: number }
+        sz: { type: number }
+        notional: { type: number }
+        startPosition: { type: number, description: 'Net position size before this fill' }
+        closedPnl: { type: number }
+        fee: { type: number }
+        feeToken: { type: string }
+        fillTs: { type: string, format: date-time }
+
+    HlPosition:
+      type: object
+      description: Open HIP-4 position for a user.
+      properties:
+        outcomeId: { type: integer }
+        side: { type: string, enum: [YES, 'NO'] }
+        netSize: { type: number }
+        notional: { type: number }
+        tradeCount: { type: integer, description: 'Always 0 from the positions endpoint — use /fills for fill-level detail.' }
+        lastFillTs: { type: string, format: date-time }
+
+    HlLeaderboardRow:
+      type: object
+      properties:
+        address: { type: string }
+        rank: { type: integer }
+        overallPnl: { type: number }
+        realizedPnl: { type: number }
+        openPnl: { type: number }
+        totalVolume: { type: number }
+        roi: { type: number }
+        winRate: { type: number }
+        closedPositions: { type: integer }
+        activePositions: { type: integer }
+        portfolioValue: { type: number }
+        currentValue: { type: number }
+        accountAgeHours: { type: number }
+        lastActiveAt: { type: string, format: date-time, nullable: true }
+        smartScore: { type: number }
+        advanced:
+          type: object
+          description: Risk-adjusted metrics (only when `advanced=true`).
+          properties:
+            sharpe: { type: number, nullable: true }
+            sortino: { type: number, nullable: true }
+            calmar: { type: number, nullable: true }
+            maxDrawdown: { type: number, nullable: true }
+
+    HlCombinedLeaderboardRow:
+      type: object
+      description: 'One trader row from `hl_combined_leaderboard_serving` (cross-product HIP-4 + perps).'
+      properties:
+        address: { type: string }
+        rank: { type: integer }
+        combined:
+          type: object
+          properties:
+            totalPnl: { type: number }
+            realizedPnl: { type: number }
+            openPnl: { type: number, description: 'HIP-4 openPnl + perps openPnl + perps fundingPnl' }
+            totalVolume: { type: number }
+            portfolioValue: { type: number }
+        hip4:
+          type: object
+          properties:
+            realizedPnl: { type: number }
+            openPnl: { type: number }
+            totalPnl: { type: number }
+            totalVolume: { type: number }
+            winRate: { type: number }
+            closedPositions: { type: integer }
+            activePositions: { type: integer }
+            portfolioValue: { type: number }
+            smartScore: { type: number }
+        perps:
+          type: object
+          properties:
+            realizedPnl: { type: number }
+            openPnl: { type: number }
+            fundingPnl: { type: number }
+            totalPnl: { type: number }
+            totalVolume: { type: number }
+            winRate: { type: number }
+            closedPositions: { type: integer }
+            activePositions: { type: integer }
+            longCount: { type: integer }
+            shortCount: { type: integer }
+            liquidationCount: { type: integer }
+            portfolioValue: { type: number }
+            largestPositionUsd: { type: number }
+            smartScore: { type: number }
+        accountAgeHours: { type: number }
+        lastActiveAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time }
+
+    HlCombinedLeaderboardResponse:
+      type: object
+      properties:
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/HlCombinedLeaderboardRow' }
+        total: { type: integer }
+        updatedAt: { type: string, format: date-time }
+        nextCursor: { type: string, nullable: true }
+
+    HlCohortBucket:
+      type: object
+      properties:
+        bucket: { type: string, description: 'Bucket label (e.g. `>10k`, `whale`, `60-70`)' }
+        memberCount: { type: integer }
+        totalVolume: { type: number }
+        totalPnl: { type: number }
+        avgPnl: { type: number }
+        avgWinRate: { type: number }
+        cohortShare: { type: number, description: 'Fraction of total trader population (0-1)' }
+
+    HlCohortResponse:
+      type: object
+      properties:
+        cohortType: { type: string, enum: [pnl_tier, size_tier, win_rate_tier] }
+        buckets:
+          type: array
+          items: { $ref: '#/components/schemas/HlCohortBucket' }
+        totalMembers: { type: integer }
+        computedAt: { type: string, format: date-time }
+
+    HlClusterDetail:
+      type: object
+      properties:
+        clusterId: { type: integer }
+        memberCount: { type: integer }
+        totalVolume: { type: number }
+        avgPnl: { type: number }
+        dominantMarkets:
+          type: array
+          items: { type: integer }
+          description: 'Top outcome IDs the cluster trades most heavily.'
+        modularity: { type: number }
+        members:
+          type: array
+          items: { type: string }
+          description: 'Optional — present only when `includeMembers=true`.'
+
+    # ── Discovery (POST /hyperliquid/outcomes/discover) ─────────────────────────
+    HlDeltaRequest:
+      type: object
+      required: [metric, window, compare]
+      properties:
+        metric:
+          type: string
+          enum: [volume, trades, yes_mid_px, no_mid_px, holders_total, holders_yes, holders_no, holders_whale]
+        window:
+          type: string
+          enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+        compare:
+          type: string
+          enum: [delta_abs, delta_pct]
+
+    HlSortOption:
+      type: object
+      required: [metric]
+      properties:
+        metric:
+          type: string
+          enum:
+            - volume_24h
+            - trades_24h
+            - holders_total
+            - holders_yes
+            - holders_no
+            - holders_whale
+            - holders_smart_money
+            - yes_mid_px
+            - no_mid_px
+            - expiry_at
+            - first_seen_at
+        direction:
+          type: string
+          enum: [asc, desc]
+          default: desc
+        window:
+          type: string
+          enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+        compare:
+          type: string
+          enum: [delta_abs, delta_pct]
+
+    HlOutcomeDiscoverRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, resolved, all]
+          default: active
+        underlying: { type: string, maxLength: 20 }
+        search: { type: string, maxLength: 200 }
+        holdersMin: { type: integer, minimum: 0 }
+        holdersMax: { type: integer, minimum: 0 }
+        volumeMin: { type: number, minimum: 0 }
+        volumeMax: { type: number, minimum: 0 }
+        endingWithin:
+          type: string
+          enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+        expiryBefore: { type: string, format: date-time }
+        expiryAfter: { type: string, format: date-time }
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+            enum: [new, building, peak, resolving, quiet]
+        deltas:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/HlDeltaRequest' }
+        sort: { $ref: '#/components/schemas/HlSortOption' }
+        pagination:
+          type: object
+          properties:
+            cursor: { type: string }
+            limit: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+    HlDeltaValue:
+      type: object
+      properties:
+        abs: { type: number, nullable: true }
+        pct: { type: number, nullable: true }
+        status:
+          type: string
+          enum: [ok, too_new, missing_history, div0]
+
+    HlOutcomeDiscoverItem:
+      type: object
+      description: |
+        HIP-4 outcome (tradeable binary) with full upstream metadata and enrichment.
+        Outcomes can exist standalone (no question container) or grouped in questions.
+      properties:
+        outcomeId: { type: integer, description: 'Unique outcome identifier' }
+        questionId:
+          type: integer
+          nullable: true
+          description: 'Container question ID (null for standalone outcomes — HIP-4 allows outcomes without a question, unlike Polymarket markets which always sit in an event)'
+        name: { type: string, description: 'Outcome name' }
+        description:
+          type: string
+          description: 'Raw upstream description string (pipe-encoded for price binaries, e.g. "class:priceBinary|underlying:BTC|targetPrice:...")'
+        class: { type: string, description: 'Parsed outcome class (e.g. priceBinary)' }
+        underlying: { type: string, description: 'Parsed underlying asset symbol (e.g. BTC, ETH)' }
+        targetPrice:
+          type: number
+          nullable: true
+          description: 'Parsed target price for price binary outcomes'
+        quoteToken: { type: string, description: 'Quote token for settlement (e.g. USDC)' }
+        expiryAt: { type: string, format: date-time, nullable: true }
+        period: { type: string }
+        sides:
+          type: object
+          properties:
+            yes: { type: string }
+            'no': { type: string }
+        isResolved: { type: boolean }
+        winningSide: { type: integer, nullable: true }
+        yesMidPx: { type: number }
+        noMidPx: { type: number }
+        metrics:
+          type: object
+          properties:
+            volume_24h: { type: number }
+            trades_24h: { type: integer }
+            holders_total: { type: integer }
+            holders_yes: { type: integer }
+            holders_no: { type: integer }
+            holders_whale: { type: integer }
+            holders_smart_money: { type: integer }
+        deltas:
+          type: object
+          description: 'Map of `{metric}_{window}` to a `HlDeltaValue`.'
+          additionalProperties: { $ref: '#/components/schemas/HlDeltaValue' }
+        stage:
+          type: string
+          enum: [new, building, peak, resolving, quiet]
+        firstSeenAt: { type: string, format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+
+    HlOutcomeDiscoverResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/HlOutcomeDiscoverItem' }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            count: { type: integer }
+            cursor:
+              type: object
+              properties:
+                next: { type: string, nullable: true }
+                prev: { type: string, nullable: true }
+            signal: { type: string }
+            view: { type: string }
+
+    # ── Event (question) discovery (POST /hyperliquid/questions/discover) ─────────
+    HlQuestionCondition:
+      type: object
+      required: [metric, op, value]
+      description: |
+        Threshold filter condition for question discovery. Targets either a current metric value
+        (without window/compare) or a delta column (with both window and compare).
+        Example: {"metric": "volume_24h", "op": "gt", "value": 50000} filters for questions with 24h volume > $50k.
+        Example: {"metric": "volume", "window": "1h", "compare": "delta_pct", "op": "gt", "value": 25} filters for 1h volume growth > 25%.
+      properties:
+        metric: { type: string, description: 'Sort field name (see HlQuestionSortOption enum)' }
+        window:
+          type: string
+          enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+          description: 'Optional: time window for delta condition. Must be paired with `compare`.'
+        compare:
+          type: string
+          enum: [delta_abs, delta_pct]
+          description: 'Optional: delta type. Must be paired with `window`.'
+        op:
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+          description: 'Comparison operator'
+        value: { type: number, description: 'Threshold value' }
+
+    HlQuestionDeltaRequest:
+      type: object
+      required: [metric, window, compare]
+      properties:
+        metric:
+          type: string
+          enum: [volume, trades, holders_total, holders_whale, holders_smart_money, price_movement]
+          description: 'Metric to compute delta for. `price_movement` aggregates odds volatility across the question''s outcomes.'
+        window:
+          type: string
+          enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+        compare:
+          type: string
+          enum: [delta_abs, delta_pct]
+
+    HlQuestionSortOption:
+      type: object
+      required: [metric]
+      properties:
+        metric:
+          type: string
+          enum:
+            - volume_24h
+            - trades_24h
+            - holders_total
+            - holders_whale
+            - holders_smart_money
+            - price_movement
+            - first_seen_at
+          description: 'Sort field. `price_movement` sorts by aggregated odds volatility across the question''s outcomes.'
+        direction:
+          type: string
+          enum: [asc, desc]
+          default: desc
+        window:
+          type: string
+          enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+          description: 'Optional: time window for delta-based sort. Must be paired with `compare`.'
+        compare:
+          type: string
+          enum: [delta_abs, delta_pct]
+          description: 'Optional: delta type for delta-based sort. Must be paired with `window`.'
+
+    HlQuestionDiscoverRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, resolved, all]
+          default: active
+        search: { type: string, maxLength: 200 }
+        holdersMin: { type: integer, minimum: 0 }
+        holdersMax: { type: integer, minimum: 0 }
+        volumeMin: { type: number, minimum: 0 }
+        volumeMax: { type: number, minimum: 0 }
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+            enum: [new, building, peak, resolving, quiet]
+        deltas:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/HlQuestionDeltaRequest' }
+        conditions:
+          type: array
+          maxItems: 10
+          description: 'Threshold filter conditions (same metric/window/compare addressing as sort). Combine via `conditionLogic`.'
+          items: { $ref: '#/components/schemas/HlQuestionCondition' }
+        conditionLogic:
+          type: string
+          enum: [and, 'or']
+          default: and
+          description: 'Combine conditions with AND or OR logic'
+        includeOutcomes:
+          type: boolean
+          default: true
+          description: 'Embed full outcome objects (PM-style events-with-markets) on each card, ordered by namedOutcomes. Embedded outcomes carry no deltas.'
+        includeStandalone:
+          type: boolean
+          default: true
+          description: 'Include standalone single-outcome cards (outcomes with no question container). Set false for questions-only view.'
+        sort: { $ref: '#/components/schemas/HlQuestionSortOption' }
+        pagination:
+          type: object
+          properties:
+            cursor: { type: string }
+            limit: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+    HlQuestionDiscoverItem:
+      type: object
+      description: |
+        HIP-4 question card in the unified discovery feed. The feed serves real questions
+        PLUS standalone (question-less) outcomes as single-outcome cards (the HL equivalent
+        of PM binary events). Use `cardId` as the stable list key.
+      properties:
+        cardId:
+          type: string
+          description: 'Stable card identifier: "q:<questionId>" for real questions, "o:<outcomeId>" for standalone outcome cards. Use as the frontend list key.'
+        questionId:
+          type: integer
+          nullable: true
+          description: 'Numeric question ID (null for standalone outcome cards)'
+        isStandalone:
+          type: boolean
+          description: 'true = a question-less outcome served as a single-outcome card (HL-specific; Polymarket markets always have an event)'
+        outcomeId:
+          type: integer
+          nullable: true
+          description: 'For standalone cards: the wrapped outcome''s ID. Null for real questions.'
+        name: { type: string }
+        description: { type: string }
+        fallbackOutcome:
+          type: integer
+          nullable: true
+          description: 'Upstream HIP-4 fallback outcome (the built-in tradeable "Other"). Null when unset or on standalone cards.'
+        isResolved: { type: boolean }
+        namedOutcomes:
+          type: array
+          items: { type: integer }
+          description: 'Array of outcome IDs in the question (null for standalone cards)'
+        settledOutcomes:
+          type: array
+          items: { type: integer }
+          description: 'Array of resolved outcome IDs'
+        metrics:
+          type: object
+          description: 'Question-level aggregated metrics across all namedOutcomes'
+          properties:
+            volume_24h: { type: number }
+            trades_24h: { type: integer }
+            holders_total: { type: integer }
+            holders_whale: { type: integer }
+            holders_smart_money: { type: integer }
+        deltas:
+          type: object
+          description: 'Map of `{metric}_{window}` to a `HlDeltaValue` (question-level aggregations).'
+          additionalProperties: { $ref: '#/components/schemas/HlDeltaValue' }
+        stage:
+          type: string
+          enum: [new, building, peak, resolving, quiet]
+        firstSeenAt: { type: string, format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+        outcomes:
+          type: array
+          items: { $ref: '#/components/schemas/HlOutcomeDiscoverItem' }
+          description: 'Full embedded outcome objects (PM-style events-with-markets), ordered by namedOutcomes. Present when request sets includeOutcomes=true (default). Embedded outcomes carry no deltas — request outcome deltas via POST /hyperliquid/outcomes/discover.'
+
+    HlQuestionDiscoverResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/HlQuestionDiscoverItem' }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            count: { type: integer }
+            cursor:
+              type: object
+              properties:
+                next: { type: string, nullable: true }
+                prev: { type: string, nullable: true }
+            signal: { type: string }
+            view: { type: string }
+
+    # ── Cross-venue identity ───────────────────────────────────────────────────
+    HlEvidenceItem:
+      type: object
+      properties:
+        evidenceType: { type: string }
+        fundingSource: { type: string }
+        pmEventAt: { type: string, format: date-time, nullable: true }
+        hlEventAt: { type: string, format: date-time, nullable: true }
+        amount: { type: number }
+        confidenceContribution: { type: number }
+        computedAt: { type: string, format: date-time }
+
+    HlIdentityFound:
+      type: object
+      required: [traderId, addresses, confidenceScore, evidence]
+      properties:
+        traderId: { type: string }
+        addresses:
+          type: object
+          properties:
+            polymarket: { type: string, nullable: true }
+            hyperliquid: { type: string, nullable: true }
+            kalshi: { type: string, nullable: true }
+        confidenceScore: { type: number }
+        evidenceMethod: { type: string }
+        evidenceCount: { type: integer }
+        firstLinkedAt: { type: string, format: date-time, nullable: true }
+        lastSyncedAt: { type: string, format: date-time, nullable: true }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/HlEvidenceItem' }
+
+    HlIdentityNotFound:
+      type: object
+      required: [traderId, addresses, confidenceScore, evidence]
+      properties:
+        traderId:
+          type: 'null'
+        addresses:
+          type: object
+          properties:
+            polymarket: { type: 'null' }
+            hyperliquid: { type: string }
+            kalshi: { type: 'null' }
+        confidenceScore:
+          type: integer
+          enum: [0]
+        evidence:
+          type: array
+          maxItems: 0
+          items: { type: object }
+
+    # ── Composed user view (GET /hyperliquid/users/{address}) ──────────────────
+    HlUserAggregateResponse:
+      type: object
+      required: [address, identity, pnl, classifications, advanced, cluster, crossVenue, recentActivity]
+      properties:
+        address: { type: string }
+        identity:
+          type: object
+          properties:
+            accountAgeHours: { type: number }
+            firstSeenAt: { type: string, format: date-time, nullable: true }
+            lastActiveAt: { type: string, format: date-time, nullable: true }
+        pnl:
+          type: object
+          properties:
+            realizedPnl: { type: number }
+            openPnl: { type: number }
+            totalPnl: { type: number }
+            totalVolume: { type: number }
+            roi: { type: number, description: '`totalPnl / totalVolume` (0 when volume is 0)' }
+            winRate: { type: number, description: 'Win rate (0-1)' }
+            closedPositionCount: { type: integer }
+            activePositionCount: { type: integer }
+            portfolioValue: { type: number }
+            smartScore: { type: number, description: 'Composite smart score (0-100)' }
+        classifications:
+          type: object
+          properties:
+            isWhale: { type: boolean }
+            isInsider: { type: boolean }
+            isSmartMoney: { type: boolean }
+        advanced:
+          nullable: true
+          description: 'Present only when `advanced=true`. Individual fields are null when no row in `hl_wallet_advanced_stats`.'
+          type: object
+          properties:
+            sharpe: { type: number, nullable: true }
+            sortino: { type: number, nullable: true }
+            calmar: { type: number, nullable: true }
+            maxDrawdown: { type: number, nullable: true }
+        cluster:
+          nullable: true
+          type: object
+          properties:
+            clusterId: { type: integer }
+            clusterSize: { type: integer }
+            memberCount: { type: integer }
+        crossVenue:
+          nullable: true
+          type: object
+          properties:
+            traderId: { type: string }
+            polymarketAddress: { type: string, nullable: true }
+            kalshiUser: { type: string, nullable: true }
+            confidenceScore: { type: number }
+        recentActivity:
+          type: object
+          properties:
+            lastFillTs: { type: string, format: date-time, nullable: true }
+            recentFillsCount24h: { type: integer }
+            recentFillsCount7d: { type: integer }
+        perps:
+          type: object
+          description: 'Perps-side aggregate from `hl_perp_wallet_stats` + `hl_perp_user_fills_raw`. All zero when the wallet has no perp activity.'
+          properties:
+            realizedPnl: { type: number }
+            openPnl: { type: number }
+            fundingPnl: { type: number }
+            totalPnl: { type: number, description: '`realizedPnl + openPnl + fundingPnl`' }
+            totalVolume: { type: number }
+            winRate: { type: number, description: 'Win rate over closed perp positions (0-1)' }
+            activePositions: { type: integer }
+            closedPositions: { type: integer }
+            longCount: { type: integer }
+            shortCount: { type: integer }
+            liquidationCount: { type: integer }
+            portfolioValue: { type: number }
+            largestPositionUsd: { type: number }
+            smartScore: { type: number, description: 'Composite perp smart score (0-100)' }
+        combined:
+          type: object
+          description: 'Sum of HIP-4 + perps for cross-product totals. `totalPnl` = HIP-4 (realized + open) + perps (realized + open + funding).'
+          properties:
+            totalPnl: { type: number }
+            realizedPnl: { type: number }
+            openPnl: { type: number }
+            totalVolume: { type: number }
+            portfolioValue: { type: number }
+
+    # ── Composed market analytics (GET /hyperliquid/outcomes/{outcomeId}/analytics) ──
+    HlOutcomeAnalyticsHolderRow:
+      type: object
+      properties:
+        address: { type: string }
+        side: { type: string, enum: [YES, 'NO'] }
+        netSize: { type: number }
+        notional: { type: number }
+
+    HlOutcomeAnalyticsTradeRow:
+      type: object
+      properties:
+        tid: { type: integer }
+        side: { type: string, enum: [YES, 'NO'] }
+        aggressorSide: { type: string, description: '`B` = aggressor bought, `A` = aggressor sold' }
+        px: { type: number }
+        sz: { type: number }
+        notional: { type: number }
+        fillTs: { type: string, format: date-time }
+        txHash: { type: string }
+
+    HlOutcomeAnalyticsResponse:
+      type: object
+      required: [market, volume, holders, topHolders, recentTrades, settlement, clusterActivity]
+      properties:
+        market:
+          type: object
+          properties:
+            outcomeId: { type: integer }
+            name: { type: string }
+            underlying: { type: string }
+            expiryAt: { type: string, format: date-time, nullable: true }
+            isResolved: { type: boolean }
+            winningSide:
+              type: integer
+              nullable: true
+              description: '0 (YES) or 1 (NO); null until reconciled'
+            yesMidPx: { type: number, nullable: true }
+            noMidPx: { type: number, nullable: true }
+            firstSeenAt: { type: string, format: date-time }
+        volume:
+          type: object
+          properties:
+            volume24h: { type: number }
+            volume7d: { type: number }
+            trades24h: { type: integer }
+            trades7d: { type: integer }
+        holders:
+          type: object
+          properties:
+            total: { type: integer }
+            yes: { type: integer }
+            'no': { type: integer }
+            whale: { type: integer }
+            smartMoney: { type: integer }
+            insider: { type: integer }
+        topHolders:
+          type: array
+          items: { $ref: '#/components/schemas/HlOutcomeAnalyticsHolderRow' }
+          description: 'Top 5 holders by `netSize`.'
+        recentTrades:
+          type: array
+          items: { $ref: '#/components/schemas/HlOutcomeAnalyticsTradeRow' }
+          description: 'Last 10 trades on the market.'
+        settlement:
+          nullable: true
+          description: 'Present only when the market is resolved.'
+          type: object
+          properties:
+            resolvedAt: { type: string, format: date-time }
+            winningSide: { type: integer, minimum: 0, maximum: 1 }
+            settlementPrice: { type: number }
+        clusterActivity:
+          type: object
+          properties:
+            distinctClusters:
+              type: integer
+              description: 'Distinct clusters with at least one open position on the market.'
+
+    # ── PnL history (GET /hyperliquid/users/{address}/pnl-history) ─────────────
+    HlPnlHistoryPoint:
+      type: object
+      description: One daily snapshot from `hl_wallet_stats_daily`.
+      properties:
+        day: { type: string, description: 'Date in ISO format (`YYYY-MM-DD`)' }
+        realizedPnl: { type: number }
+        openPnl: { type: number }
+        totalPnl: { type: number, description: '`realizedPnl + openPnl`' }
+        totalVolume: { type: number }
+        winRate: { type: number, description: 'Win rate (0-1)' }
+        portfolioValue: { type: number }
+        closedPositionCount: { type: integer }
+        activePositionCount: { type: integer }
+
+    HlPnlHistoryResponse:
+      type: object
+      properties:
+        address: { type: string }
+        days: { type: integer, description: 'Number of trailing days requested.' }
+        history:
+          type: array
+          items: { $ref: '#/components/schemas/HlPnlHistoryPoint' }
+          description: 'Daily snapshots ordered ascending by `day`.'
+        meta:
+          type: object
+          properties:
+            count: { type: integer }
+
+    # ── Similar wallets (GET /hyperliquid/wallets/{address}/similar) ───────────
+    HlSimilarWallet:
+      type: object
+      description: One similar-wallet pair from `hl_wallet_similarity`.
+      properties:
+        otherAddress: { type: string }
+        jaccardSimilarity: { type: number, description: 'Jaccard score on shared traded `outcome_id` sets (0-1)' }
+        sharedOutcomes: { type: integer, description: 'Number of `outcome_id`s both wallets have traded' }
+        computedAt: { type: string, format: date-time }
+
+    HlWalletSimilarResponse:
+      type: object
+      properties:
+        address: { type: string }
+        similarWallets:
+          type: array
+          items: { $ref: '#/components/schemas/HlSimilarWallet' }
+          description: 'Top-K counterparties ordered by `jaccardSimilarity` DESC.'
+        meta:
+          type: object
+          properties:
+            count: { type: integer }
+            limit: { type: integer }
+
+    # ── Trending tags (GET /hyperliquid/questions/trending-tags) ──────────────────
+    HlTrendingTag:
+      type: object
+      description: One trending-tag row.
+      properties:
+        name: { type: string, description: 'Tag value (e.g. `BTC`, `priceBinary`, `1d`)' }
+        type:
+          type: string
+          enum: [underlying, class, period]
+          description: 'Dimension on `hl_outcomes` the tag was sourced from.'
+        outcomeCount: { type: integer, description: 'Number of `hl_outcomes` rows with this tag value.' }
+        volume24h: { type: number, description: '24h notional volume from `hl_outcome_trades_raw`.' }
+        uniqueOutcomes: { type: integer, description: 'Number of distinct outcomes with this tag value.' }
+
+    HlTrendingTagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/HlTrendingTag' }
+          description: 'Merged result of three independent dimension queries, ordered by `volume24h` DESC.'
+        meta:
+          type: object
+          properties:
+            count: { type: integer }
+            limit: { type: integer }
+
+    # ── AI / intelligence ─────────────────────────────────────────────────────
+    HlOutcomeIntelligence:
+      type: object
+      description: AI-generated summary for a HIP-4 outcome.
+      properties:
+        outcomeId: { type: integer }
+        summary: { type: string, description: '1-3 sentence data-grounded analysis' }
+        headline: { type: string, description: 'Short headline suitable for cards (<= 80 chars)' }
+        confidence: { type: number, description: 'Model-reported confidence (0-1)' }
+        tokensUsed: { type: integer, description: 'Approx tokens spent on the LLM call' }
+        model: { type: string, description: 'OpenRouter model identifier' }
+        generatedAt: { type: string, format: date-time }
+
+    HlOutcomeIntelligenceResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/HlOutcomeIntelligence' }
+
+    HlAnomaly:
+      type: object
+      description: A single rule-based anomaly detection on a HIP-4 outcome.
+      properties:
+        anomalyId: { type: string, format: uuid }
+        outcomeId: { type: integer }
+        anomalyType:
+          type: string
+          enum: [volume_spike, holder_surge, price_swing]
+        severity:
+          type: string
+          enum: [low, medium, high]
+        score: { type: number, description: 'Magnitude of the deviation (e.g. spike ratio, swing pct)' }
+        metricName: { type: string }
+        baselineValue: { type: number }
+        actualValue: { type: number }
+        description: { type: string, description: 'Human-readable rendition of the rule trigger' }
+        detectedAt: { type: string, format: date-time }
+
+    HlAnomaliesResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/HlAnomaly' }
+        meta:
+          type: object
+          properties:
+            count: { type: integer }
+            limit: { type: integer }
+
+    HlSearchResult:
+      type: object
+      properties:
+        outcomeId: { type: integer }
+        name: { type: string }
+        underlying: { type: string }
+        similarity: { type: number, description: 'Cosine similarity in [-1, 1] — higher is closer' }
+
+    HlSearchResponse:
+      type: object
+      required: [data, query, count]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/HlSearchResult' }
+        query: { type: string }
+        count: { type: integer }
+
+    HlCorrelatedMarket:
+      type: object
+      properties:
+        outcomeId: { type: integer }
+        name: { type: string }
+        underlying: { type: string }
+        correlation: { type: number, description: 'Pearson r over the window' }
+        sampleCount: { type: integer, description: 'Overlapping snapshots used to compute the correlation' }
+        windowDays: { type: integer }
+
+    HlCorrelatedResponse:
+      type: object
+      required: [outcomeId, correlatedOutcomes, meta]
+      properties:
+        outcomeId: { type: integer }
+        correlatedOutcomes:
+          type: array
+          items: { $ref: '#/components/schemas/HlCorrelatedMarket' }
+        meta:
+          type: object
+          properties:
+            count: { type: integer }
+            limit: { type: integer }
+            minCorrelation: { type: number }
+
+    HlMatrixMarket:
+      type: object
+      properties:
+        outcomeId: { type: integer }
+        name: { type: string }
+        underlying: { type: string }
+
+    HlMatrixPair:
+      type: object
+      description: Canonical-ordered correlation pair (outcomeIdA < outcomeIdB).
+      properties:
+        outcomeIdA: { type: integer }
+        outcomeIdB: { type: integer }
+        correlation: { type: number }
+
+    HlMatrixResponse:
+      type: object
+      required: [markets, pairs, meta]
+      properties:
+        markets:
+          type: array
+          items: { $ref: '#/components/schemas/HlMatrixMarket' }
+        pairs:
+          type: array
+          items: { $ref: '#/components/schemas/HlMatrixPair' }
+        meta:
+          type: object
+          properties:
+            outcomeCount: { type: integer }
+            pairCount: { type: integer }
+            windowDays:
+              type: integer
+              nullable: true
+              description: 'Uniform window across stored pairs; null when no pairs returned.'
+    # ─── Hyperliquid PERPS schemas ─────────────────────────────────────────────
+
+    HlPerpAsset:
+      type: object
+      description: Hyperliquid perpetual asset (bare coin symbol, signed positions).
+      properties:
+        coin: { type: string }
+        category: { type: string, enum: [majors, alts, memes, other] }
+        szDecimals: { type: integer, minimum: 0 }
+        maxLeverage: { type: integer, minimum: 1 }
+        onlyIsolated: { type: boolean }
+        markPx: { type: number }
+        oraclePx: { type: number }
+        midPx: { type: number }
+        funding: { type: number, description: 'Per-hour funding rate as signed fraction.' }
+        openInterest: { type: number, description: 'Open interest in asset units.' }
+        volume24h: { type: number }
+        trades24h: { type: integer }
+        firstSeenAt: { type: string, format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+
+    HlPerpHolderRow:
+      type: object
+      properties:
+        address: { type: string }
+        side: { type: string, enum: [long, short] }
+        szi: { type: number, description: 'Signed position size: positive = long, negative = short.' }
+        entryPx: { type: number }
+        notional: { type: number }
+        realizedPnl: { type: number }
+        fundingPnl: { type: number }
+        positionValue: { type: number }
+        liquidationCount: { type: integer }
+        lastFillTs: { type: string, format: date-time }
+        isWhale: { type: boolean }
+        isInsider: { type: boolean }
+        isSmartMoney: { type: boolean }
+        smartScore: { type: number }
+
+    HlPerpClassificationRow:
+      type: object
+      properties:
+        address: { type: string }
+        side: { type: string, enum: [long, short] }
+        szi: { type: number }
+        entryPx: { type: number }
+        notional: { type: number }
+        realizedPnl: { type: number }
+        fundingPnl: { type: number }
+        positionValue: { type: number }
+        liquidationCount: { type: integer }
+        lastFillTs: { type: string, format: date-time }
+        portfolioValue: { type: number }
+        totalVolume: { type: number }
+        accountAgeHours: { type: number }
+        closedPositionCount: { type: integer }
+        winRate: { type: number, minimum: 0, maximum: 1 }
+        smartScore: { type: number }
+
+    HlPerpTradeRow:
+      type: object
+      properties:
+        tid: { type: integer }
+        coin: { type: string }
+        maker: { type: string }
+        taker: { type: string }
+        aggressorSide: { type: string, enum: [B, A], description: "B = taker bought, A = taker sold." }
+        px: { type: number }
+        sz: { type: number }
+        notional: { type: number }
+        fillTs: { type: string, format: date-time }
+        txHash: { type: string }
+
+    HlPerpUserFillRow:
+      type: object
+      properties:
+        tid: { type: integer }
+        coin: { type: string }
+        aggressorSide: { type: string, enum: [B, A] }
+        dir:
+          type: string
+          enum: [Open Long, Close Long, Open Short, Close Short, Funding, Liquidation]
+        px: { type: number }
+        sz: { type: number }
+        notional: { type: number }
+        startPosition: { type: number, description: 'Signed prior szi; post-fill = startPosition + signed(sz).' }
+        closedPnl: { type: number }
+        fee: { type: number }
+        feeToken: { type: string }
+        fundingRate: { type: number, description: "Populated only when dir='Funding'." }
+        liquidationPx: { type: number, nullable: true, description: "Populated only when dir='Liquidation'." }
+        fillTs: { type: string, format: date-time }
+
+    HlPerpUserPositionRow:
+      type: object
+      properties:
+        coin: { type: string }
+        side: { type: string, enum: [long, short] }
+        szi: { type: number }
+        entryPx: { type: number }
+        markPx: { type: number, description: 'Latest mark price from hl_perp_asset_ctx.' }
+        notional: { type: number }
+        positionValue: { type: number }
+        realizedPnl: { type: number }
+        fundingPnl: { type: number }
+        unrealizedPnl:
+          type: number
+          description: 'Computed at query time as szi * (markPx - entryPx). Signed.'
+        liquidationCount: { type: integer }
+        lastFillTs: { type: string, format: date-time }
+
+    HlPerpLeaderboardRow:
+      type: object
+      properties:
+        address: { type: string }
+        rank: { type: integer }
+        overallPnl: { type: number }
+        realizedPnl: { type: number }
+        openPnl: { type: number }
+        fundingPnl: { type: number }
+        totalVolume: { type: number }
+        totalFills: { type: integer }
+        winRate: { type: number, minimum: 0, maximum: 1 }
+        closedPositions: { type: integer }
+        activePositions: { type: integer }
+        longCount: { type: integer }
+        shortCount: { type: integer }
+        liquidationCount: { type: integer }
+        portfolioValue: { type: number }
+        largestPositionUsd: { type: number }
+        accountAgeHours: { type: number }
+        lastActiveAt: { type: string, format: date-time, nullable: true }
+        smartScore: { type: number }
+
+    HlPerpCohortResponse:
+      type: object
+      properties:
+        cohortType:
+          type: string
+          enum: [pnl_tier, size_tier, win_rate_tier]
+        buckets:
+          type: array
+          items:
+            type: object
+            properties:
+              bucket: { type: string }
+              memberCount: { type: integer }
+              totalVolume: { type: number }
+              totalPnl: { type: number }
+              avgPnl: { type: number }
+              avgWinRate: { type: number }
+              cohortShare: { type: number, description: 'Percentage 0-100.' }
+        totalMembers: { type: integer }
+        computedAt: { type: string, format: date-time }
+
+    HlPerpDeltaValue:
+      type: object
+      properties:
+        abs: { type: number, nullable: true }
+        pct: { type: number, nullable: true }
+        status:
+          type: string
+          enum: [ok, too_new, missing_history, div0]
+
+    HlPerpDiscoverRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        search: { type: string, maxLength: 32 }
+        category: { type: string, enum: [majors, alts, memes, other] }
+        holdersMin: { type: integer, minimum: 0 }
+        holdersMax: { type: integer, minimum: 0 }
+        volumeMin: { type: number, minimum: 0 }
+        volumeMax: { type: number, minimum: 0 }
+        openInterestMin: { type: number, minimum: 0 }
+        openInterestMax: { type: number, minimum: 0 }
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { type: string, enum: [new, building, peak, quiet] }
+        deltas:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [metric, window, compare]
+            properties:
+              metric: { type: string, enum: [volume, trades, open_interest, mark_px, funding] }
+              window: { type: string, enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d] }
+              compare: { type: string, enum: [delta_abs, delta_pct] }
+        sort:
+          type: object
+          required: [metric]
+          properties:
+            metric:
+              type: string
+              enum: [volume_24h, trades_24h, open_interest, mark_px, funding, holders_total, holders_long, holders_short, holders_whale, holders_smart_money, first_seen_at]
+            direction: { type: string, enum: [asc, desc], default: desc }
+            window: { type: string, enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d] }
+            compare: { type: string, enum: [delta_abs, delta_pct] }
+        pagination:
+          type: object
+          properties:
+            cursor: { type: string }
+            limit: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+    HlPerpDiscoverItem:
+      type: object
+      properties:
+        coin: { type: string }
+        category: { type: string }
+        szDecimals: { type: integer }
+        maxLeverage: { type: integer }
+        onlyIsolated: { type: boolean }
+        markPx: { type: number }
+        oraclePx: { type: number }
+        midPx: { type: number }
+        funding: { type: number }
+        openInterest: { type: number }
+        metrics:
+          type: object
+          properties:
+            volume_24h: { type: number }
+            trades_24h: { type: integer }
+            holders_total: { type: integer }
+            holders_long: { type: integer }
+            holders_short: { type: integer }
+            holders_whale: { type: integer }
+            holders_smart_money: { type: integer }
+        deltas:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HlPerpDeltaValue'
+        stage: { type: string, enum: [new, building, peak, quiet] }
+        firstSeenAt: { type: string, format: date-time }
+        lastSyncedAt: { type: string, format: date-time }
+
+    HlPerpDiscoverResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/HlPerpDiscoverItem' }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            count: { type: integer }
+            cursor:
+              type: object
+              properties:
+                next: { type: string, nullable: true }
+                prev: { type: string, nullable: true }
+            signal: { type: string }
+            view: { type: string }

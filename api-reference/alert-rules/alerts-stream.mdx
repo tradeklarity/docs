@@ -1,0 +1,95 @@
+---
+title: 'Alert Stream'
+openapi: openapi-stream.yaml GET /alerts/stream
+description: Real-time SSE stream of alerts for the authenticated user's rules
+---
+
+## Overview
+
+Server-Sent Events (SSE) stream that delivers real-time alerts when the authenticated user's alert rules fire. Alerts are pushed as they occur -- no polling needed.
+
+**Event types:**
+
+| Event | Description |
+|-------|-------------|
+| `connected` | Sent immediately on connection with `{ clientId, userId }` |
+| `alert` | Fired when an alert rule triggers |
+| keepalive (comment) | Periodic heartbeat to maintain connection |
+
+## Authentication
+
+Requires JWT authentication. Send your token as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+<Note>
+Browser `EventSource` cannot set custom headers. For browser clients, ensure the `klarity_access_token` cookie is set (same-origin requests will send it automatically).
+</Note>
+
+## Connection
+
+<RequestExample>
+```bash cURL
+curl -N "https://ws.klarity.trade/stream/alerts/stream" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+```
+
+```javascript JavaScript
+// Browser (cookie-based auth -- cookie must be set)
+const eventSource = new EventSource('https://ws.klarity.trade/stream/alerts/stream', {
+  withCredentials: true
+});
+
+eventSource.addEventListener('connected', (event) => {
+  const { clientId, userId } = JSON.parse(event.data);
+  console.log(`Connected as ${userId}, client ${clientId}`);
+});
+
+eventSource.addEventListener('alert', (event) => {
+  const alert = JSON.parse(event.data);
+  console.log(`Alert fired: ${alert.ruleName} (${alert.ruleType})`);
+});
+
+eventSource.onerror = () => {
+  console.error('SSE connection error, will auto-reconnect');
+};
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: connected
+data: {"clientId":"550e8400-e29b-41d4-a716-446655440000","userId":"user_789"}
+
+: keepalive
+
+event: alert
+data: {"ruleId":"abc123","ruleName":"Whale Alert","ruleType":"whale_trade","marketSlug":"will-trump-win-2024","currentValue":75000,"triggeredAt":"2026-03-22T12:30:00.000Z"}
+
+: keepalive
+```
+</ResponseExample>
+
+## Rate Limiting
+
+Per-IP SSE connection limit is enforced. Exceeding it returns `429`:
+
+```json
+{
+  "error": "Per-IP SSE connection limit exceeded",
+  "code": "RATE_LIMIT_EXCEEDED"
+}
+```
+
+## Error Responses
+
+**401 - Missing or invalid JWT:**
+
+```json
+{
+  "error": "Missing authentication token",
+  "code": "UNAUTHORIZED"
+}
+```

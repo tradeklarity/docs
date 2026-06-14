@@ -1,0 +1,69 @@
+---
+title: 'HIP-4 Leaderboard'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/leaderboard
+description: Global Hyperliquid trader leaderboard with optional risk-adjusted metrics
+---
+
+Global HL trader leaderboard ranked by `overallPnl` (realized + open) by default.
+Use `advanced=true` to include risk-adjusted metrics (Sharpe, Sortino, Calmar,
+max drawdown). Cursor-based pagination for stable scroll.
+
+Response shape mirrors `/leaderboard/global` (Polymarket) so frontend code can
+share components.
+
+Rate limit: 60 requests/minute. Response cached for 60s.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="100">
+  Page size (1-500)
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Opaque cursor returned as `nextCursor` from a previous page
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="overall_pnl">
+  Sort field. Accepted values (snake_case and camelCase):
+  `pnl` / `total_pnl` / `overall_pnl`, `realized_pnl`, `open_pnl`,
+  `volume` / `total_volume`, `win_rate`, `active_positions`, `closed_positions`,
+  `current_value`, `portfolio_value`, `roi`, `smart_score`,
+  `sharpe`, `sortino`, `calmar`, `max_drawdown`
+</ParamField>
+
+<ParamField query="sortOrder" type="string" default="DESC">
+  `ASC` or `DESC`
+</ParamField>
+
+<ParamField query="advanced" type="boolean" default="false">
+  Include risk-adjusted metrics (Sharpe, Sortino, Calmar, max drawdown).
+  When `advanced=true` and sorting by an advanced metric, rows with `NULL` values
+  are excluded.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash Top 100 by overall PnL
+curl "https://api.klarity.trade/hyperliquid/leaderboard?limit=100"
+```
+
+```bash Advanced — sort by Sharpe
+curl "https://api.klarity.trade/hyperliquid/leaderboard?advanced=true&sortBy=sharpe&limit=50"
+```
+
+```bash Cursor pagination
+curl "https://api.klarity.trade/hyperliquid/leaderboard?limit=100&cursor=eyJ2YWx1ZSI6MTIzNDUsImlkIjoiMHguLi4ifQ"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/leaderboard?advanced=true&sortBy=sharpe&limit=50',
+);
+const { rows, total, updatedAt, nextCursor } = await res.json();
+// rows[0]: { address, rank, overallPnl, realizedPnl, openPnl, totalVolume, roi,
+//            winRate, closedPositions, activePositions, portfolioValue, currentValue,
+//            accountAgeHours, lastActiveAt, smartScore,
+//            advanced?: { sharpe, sortino, calmar, maxDrawdown } }
+```
+</CodeGroup>

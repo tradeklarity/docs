@@ -1,0 +1,45 @@
+---
+title: 'AI Intelligence'
+openapi: 'GET /markets/{slug}/intelligence'
+description: 'Get an AI-generated intelligence summary for a market'
+---
+
+Retrieve an AI-powered intelligence summary for a specific prediction market. Summaries are generated using Claude Haiku and include market sentiment analysis, key trading signals, risk factors, and a confidence score.
+
+Use this endpoint when you need a quick, structured overview of market dynamics without manually analyzing holder data, trade flow, and price action.
+
+### Key Features
+
+- **AI-generated summary** -- natural language overview of the market's current state
+- **Sentiment analysis** -- bullish, bearish, or neutral classification
+- **Activity level** -- how actively the market is being traded
+- **Key signals** -- notable trading patterns and holder behavior
+- **Risk factors** -- potential concerns to be aware of
+- **Confidence score** -- how confident the model is in its analysis (0-1)
+
+### Example Request
+
+```bash
+curl "https://api.klarity.trade/markets/will-trump-win/intelligence"
+```
+
+### Response Format
+
+Returns a `data` object containing the intelligence summary:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `market_slug` | string | The market slug |
+| `summary` | string | Natural language market summary |
+| `sentiment` | string | Market sentiment (e.g., "bullish", "bearish", "neutral") |
+| `activity_level` | string | Trading activity level |
+| `key_signals` | string[] | Notable trading signals and patterns |
+| `risk_factors` | string[] | Identified risk factors |
+| `confidence` | number | Model confidence in the analysis (0-1) |
+| `model` | string | AI model used for generation |
+| `generated_at` | string | ISO-8601 timestamp of when the summary was generated |
+
+<Note>
+  Intelligence summaries are pre-generated and cached. Not all markets have summaries available --
+  a 404 response means no intelligence data exists for that market yet.
+</Note>

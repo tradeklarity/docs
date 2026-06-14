@@ -1,0 +1,48 @@
+---
+title: 'Get HIP-4 Question Detail'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/questions/{questionId}
+description: Get detail for a single HIP-4 question by question ID
+---
+
+Returns full detail for a single HIP-4 **question** with embedded outcomes, including:
+- Question metadata (cardId, questionId, name, description, namedOutcomes, settledOutcomes, fallbackOutcome)
+- Current aggregated metrics across all outcomes (volume, trades, holders)
+- Full embedded outcome objects ordered by namedOutcomes (PM-style events-with-markets)
+- Default deltas (1h + 24h volume changes)
+- Lifecycle stage classification
+
+The response uses the same shape as items returned by `POST /hyperliquid/questions/discover`, so you can render this directly in a trade UI without special casing.
+
+**Note:** Standalone outcomes (question-less) are NOT addressable via this endpoint. Use `GET /hyperliquid/outcomes/{outcomeId}` instead.
+
+Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="questionId" type="integer" required>
+  HIP-4 question ID (numeric)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl https://api.klarity.trade/hyperliquid/questions/42
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/questions/42');
+const { data } = await res.json();
+// data.cardId = "q:42"
+// data.questionId = 42
+// data.isStandalone = false
+// data.outcomes = [{ outcomeId, name, yesMidPx, noMidPx, ... }, ...]
+// data.metrics = { volume_24h, trades_24h, holders_total, ... }
+// data.deltas = { volume_1h: {...}, volume_24h: {...}, ... }
+// data.stage = "peak"|"new"|"building"|"resolving"|"quiet"
+```
+</CodeGroup>
+
+<Note>
+  Returns 404 if the question ID does not exist or is a standalone outcome (use `GET /hyperliquid/outcomes/{outcomeId}` for standalones).
+</Note>

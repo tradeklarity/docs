@@ -1,0 +1,36 @@
+---
+title: 'Recent Perpetual Trades'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets/{coin}/trades
+description: Recent CLOB trades for a perp from hl_perp_trades_raw
+---
+
+Returns recent CLOB trades for the perp, ordered by `fillTs` desc.
+
+`aggressorSide` mirrors HL's wire format:
+- `B` — taker bought (took offer)
+- `A` — taker sold (hit bid)
+
+The endpoint scans `hl_perp_trades_raw` directly (no dedup) because trade IDs
+are unique on the wire. Older trades are partitioned monthly with no TTL.
+
+## Path Parameters
+
+<ParamField path="coin" type="string" required>
+  Bare perp asset symbol.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="50">
+  Number of trades to return (max 200).
+</ParamField>
+
+<ParamField query="since" type="string">
+  ISO-8601 timestamp — return only trades with `fill_ts >= since`.
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/assets/BTC/trades?limit=100"
+```

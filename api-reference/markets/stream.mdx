@@ -1,0 +1,155 @@
+---
+title: Market Trade Stream
+openapi: openapi-stream.yaml GET /markets/{slug}/stream
+description: SSE stream of enriched trades for a specific market
+---
+
+Establishes a Server-Sent Events (SSE) connection that streams real-time enriched trades for a specific market. Each trade includes wallet classification flags (whale, smart money, insider) and account-level stats.
+
+For historical trades, use [`GET /markets/{slug}/trades`](/api-reference/markets/get-trades) before connecting.
+
+## Path Parameters
+
+<ParamField path="slug" type="string" required>
+  Market slug identifier
+</ParamField>
+
+## Response
+
+Server-Sent Events (SSE) stream. Each event contains an enriched trade.
+
+### Event Types
+
+| Event       | Description            |
+| ----------- | ---------------------- |
+| `init`      | Connection established |
+| `keepalive` | Heartbeat (every 15s)  |
+| `trade`     | New enriched trade     |
+
+### Trade Event Fields
+
+<ResponseField name="tradeId" type="string">
+  Unique trade identifier
+</ResponseField>
+<ResponseField name="wallet" type="string">
+  Trader wallet address
+</ResponseField>
+<ResponseField name="conditionId" type="string">
+  Market condition ID
+</ResponseField>
+<ResponseField name="marketId" type="string | null">
+  Market ID
+</ResponseField>
+<ResponseField name="marketSlug" type="string | null">
+  Market slug
+</ResponseField>
+<ResponseField name="size" type="number">
+  Number of shares traded
+</ResponseField>
+<ResponseField name="side" type="string | null">
+  Trade side: `BUY` or `SELL`. Null if not determinable.
+</ResponseField>
+<ResponseField name="executionPriceUsd" type="number | null">
+  Execution price per share (from WebSocket trade message)
+</ResponseField>
+<ResponseField name="markPriceUsd" type="number | null">
+  Mark price per share (from Gamma API, cached)
+</ResponseField>
+<ResponseField name="eventTitle" type="string | null">
+  Parent event title
+</ResponseField>
+<ResponseField name="marketQuestion" type="string | null">
+  Market question text
+</ResponseField>
+<ResponseField name="outcomeTitle" type="string | null">
+  Outcome title (e.g., "Yes" or "No")
+</ResponseField>
+<ResponseField name="iconUrl" type="string | null">
+  Event icon/image URL
+</ResponseField>
+<ResponseField name="tokenId" type="string | null">
+  CLOB token ID (asset ID) for the outcome token
+</ResponseField>
+<ResponseField name="isPortfolioWhale" type="boolean">
+  Whether the trader is classified as a portfolio whale
+</ResponseField>
+<ResponseField name="isSmartMoney" type="boolean">
+  Whether the trader is classified as smart money
+</ResponseField>
+<ResponseField name="isInsider" type="boolean">
+  Whether the trader is classified as an insider
+</ResponseField>
+<ResponseField name="winRatePct" type="number | null">
+  Win rate percentage (0-100), or null if unavailable
+</ResponseField>
+<ResponseField name="totalRealizedPnlUsd" type="number | null">
+  Total realized PnL in USD, or null if unavailable
+</ResponseField>
+<ResponseField name="closedPositions" type="number | null">
+  Number of closed/settled positions, or null if unavailable
+</ResponseField>
+<ResponseField name="portfolioValueUsd" type="number | null">
+  Total portfolio value in USD, or null if unavailable
+</ResponseField>
+<ResponseField name="ageHours" type="number | null">
+  Account age in hours, or null if unavailable
+</ResponseField>
+
+<RequestExample>
+```javascript JavaScript
+const eventSource = new EventSource(
+  "https://ws.klarity.trade/markets/will-trump-win-2024/stream"
+);
+
+eventSource.addEventListener("init", (event) => {
+  console.log("Connected:", JSON.parse(event.data));
+});
+
+eventSource.addEventListener("trade", (event) => {
+  const trade = JSON.parse(event.data);
+  if (trade.isSmartMoney || trade.isPortfolioWhale) {
+    console.log("Whale/Smart money trade:", trade);
+  }
+});
+
+eventSource.onerror = () => {
+  console.log("Connection lost, reconnecting...");
+};
+```
+
+```bash cURL
+curl -N "https://ws.klarity.trade/markets/will-trump-win-2024/stream"
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: init
+data: {"connected":true}
+
+event: keepalive
+data: {}
+
+event: trade
+data: {"tradeId":"abc123","wallet":"0x1234...","conditionId":"0x5678...","marketId":"0x5678...","marketSlug":"will-trump-win-2024","size":1000,"side":"BUY","executionPriceUsd":0.65,"markPriceUsd":0.66,"eventTitle":"2024 US Presidential Election","marketQuestion":"Will Trump win?","outcomeTitle":"Yes","iconUrl":"https://polymarket.com/images/election.png","tokenId":"12345","isPortfolioWhale":true,"isSmartMoney":true,"isInsider":false,"winRatePct":72.5,"totalRealizedPnlUsd":85000,"closedPositions":45,"portfolioValueUsd":250000,"ageHours":8760}
+
+```
+</ResponseExample>
+
+<Note>
+The stream automatically reconnects if the connection drops. Use `EventSource` in browsers for automatic reconnection handling. Note that `EventSource` requires listening on the `trade` event name (not `message`).
+</Note>
+
+## Backfill on Reconnect
+
+When a client reconnects after a disconnect, it should:
+
+1. **Track the last trade timestamp** received before disconnect
+2. **Fetch missed trades** via `GET /markets/{slug}/trades` filtered by that timestamp
+3. **Reconnect to stream** and deduplicate any overlap
+
+This ensures no trades are missed during network interruptions.
+
+<Card title="Historical Trades" icon="clock-rotate-left" href="/api-reference/markets/get-trades">
+  Use `GET /markets/{slug}/trades` for paginated historical trade data with enrichment and classifications.
+</Card>

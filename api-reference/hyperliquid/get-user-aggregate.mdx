@@ -1,0 +1,68 @@
+---
+title: 'HIP-4 User Aggregate'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/users/{address}
+description: Composed user view — identity, PnL, classifications, cluster, cross-venue identity
+---
+
+Single-call dashboard payload for a Hyperliquid wallet. Mirrors the
+Polymarket [`GET /users/:address`](/api-reference/users/get-user-details) response
+shape so cross-venue UIs can render the same modal on both venues.
+
+Composes:
+
+- **Identity** — `accountAgeHours`, `firstSeenAt`, `lastActiveAt` from
+  `hl_address_universe` + `hl_wallet_stats`.
+- **PnL summary** — realized / open / total PnL, total volume, ROI, win
+  rate, position counts, portfolio value, smart score.
+- **Classifications** — `isWhale`, `isInsider`, `isSmartMoney` evaluated
+  against the configured HL thresholds.
+- **Advanced stats** *(opt-in via `?advanced=true`)* — Sharpe, Sortino,
+  Calmar, max drawdown from `hl_wallet_advanced_stats`.
+- **Cluster** — assigned cluster id, cluster size, member count (from
+  `hl_wallet_clusters` + `hl_cluster_metadata`), or `null`.
+- **Cross-venue identity** — linked Polymarket / Kalshi addresses from
+  `cross_venue_traders`, or `null`.
+- **Recent activity** — `lastFillTs` and `recentFillsCount24h` /
+  `recentFillsCount7d` from `hl_user_fills_raw`.
+- **Perps** — realized / open / funding PnL, totals, win rate, position
+  counts (long / short / liquidations), portfolio value, largest position,
+  perp smart score. Sourced from `hl_perp_wallet_stats` +
+  `hl_perp_user_fills_raw`. All-zero default when the wallet has no perp
+  activity.
+- **Combined** — sum of HIP-4 + perps for cross-product totals. Frontend can
+  use this single block to render the unified account view without summing
+  client-side.
+
+Returns shaped null/zero defaults for wallets with zero on-chain activity;
+never 404s unless the address fails the `^0x[a-fA-F0-9]{40}$` regex.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="advanced" type="boolean" default="false">
+  Include risk-adjusted metrics (Sharpe / Sortino / Calmar / max drawdown).
+  Reads from `hl_wallet_advanced_stats`; field is `null` when no row exists.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/users/0xd1576f8217dc957d3c5071e17ef2a093e64f3294?advanced=true"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/users/0xd1576f8217dc957d3c5071e17ef2a093e64f3294?advanced=true',
+);
+const user = await res.json();
+// user.pnl.smartScore, user.cluster?.clusterId, user.crossVenue?.polymarketAddress
+// user.perps.realizedPnl, user.perps.liquidationCount, user.perps.smartScore
+// user.combined.totalPnl   // HIP-4 + perps unified
+```
+</CodeGroup>

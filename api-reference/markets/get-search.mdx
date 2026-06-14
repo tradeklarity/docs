@@ -1,0 +1,47 @@
+---
+title: 'Semantic Search'
+openapi: 'GET /markets/search'
+description: 'Search markets using semantic similarity powered by embeddings'
+---
+
+Search for prediction markets using natural language queries. This endpoint uses text embeddings (OpenAI `text-embedding-3-small` via OpenRouter) to find markets semantically similar to your query, not just keyword matches.
+
+This is useful when you want to find markets related to a concept or topic without knowing the exact market question or slug.
+
+### Key Features
+
+- **Semantic matching** -- finds markets by meaning, not just keywords
+- **Natural language queries** -- search with plain English (e.g., "US presidential election outcome")
+- **Similarity scoring** -- results ranked by cosine similarity to your query
+- **Configurable result count** -- return up to 50 results
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `q` | string | *required* | Search query (1-500 characters) |
+| `limit` | integer | 10 | Maximum results to return (1-50) |
+
+### Example Request
+
+```bash
+curl "https://api.klarity.trade/markets/search?q=bitcoin%20price%20prediction&limit=5"
+```
+
+### Response Format
+
+Returns matching markets ranked by similarity:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | array | Array of search results |
+| `data[].market_slug` | string | Market slug for follow-up API calls |
+| `data[].question` | string | The market question text |
+| `data[].similarity` | number | Cosine similarity score (0-1, higher = more relevant) |
+| `query` | string | The original search query |
+| `count` | number | Number of results returned |
+
+<Note>
+  Returns 503 if the embedding service is not configured or unavailable. This endpoint requires
+  the `OPENROUTER_API_KEY` environment variable to be set.
+</Note>

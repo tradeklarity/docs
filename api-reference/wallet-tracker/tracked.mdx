@@ -1,0 +1,80 @@
+---
+title: Get Tracked Wallets
+openapi: openapi-stream.yaml GET /wallets/tracked
+description: List all wallet addresses you're currently tracking with metadata
+---
+
+## Overview
+
+Returns a list of all wallet addresses you're currently subscribed to for trade notifications, including optional metadata (color, icon, alias).
+
+## Authentication
+
+Send your JWT as either:
+- **Cookie:** `klarity_access_token=<jwt>` (automatic for same-origin browser requests)
+- **Header:** `klarity_access_token: <jwt>` (for server-side requests from Next.js API routes)
+
+The user ID is extracted from the JWT `sub` claim.
+
+## Response
+
+<ResponseField name="wallets" type="array">
+  Array of tracked wallet objects with metadata
+
+  <Expandable title="Wallet Object">
+    <ResponseField name="wallet" type="string">
+      Ethereum wallet address (0x-prefixed hex, lowercased)
+    </ResponseField>
+
+    <ResponseField name="color" type="string" nullable>
+      Hex color code (e.g., `#FF5733`) or `null` if not set
+    </ResponseField>
+
+    <ResponseField name="icon" type="string" nullable>
+      Icon identifier (alphanumeric, underscores, hyphens), or `null` if not set
+    </ResponseField>
+
+    <ResponseField name="alias" type="string" nullable>
+      Custom wallet nickname/alias, or `null` if not set
+    </ResponseField>
+
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="count" type="integer">
+  Number of tracked wallets
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+# Using header
+curl "https://ws.klarity.trade/stream/wallets/tracked" \
+  -H "klarity_access_token: eyJhbGciOiJIUzI1NiJ9..."
+
+# Using cookie (browser same-origin)
+curl "https://ws.klarity.trade/stream/wallets/tracked" \
+  -b "klarity_access_token=eyJhbGciOiJIUzI1NiJ9..."
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "wallets": [
+    {
+      "wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe",
+      "color": "#FF5733",
+      "icon": "whale",
+      "alias": "Big Whale Wallet"
+    },
+    {
+      "wallet": "0xd8149dae30d4149ae1d8fd1d6c6a8a5c9f1a8b7c",
+      "color": null,
+      "icon": null,
+      "alias": "Trading Bot"
+    }
+  ],
+  "count": 2
+}
+```
+</ResponseExample>

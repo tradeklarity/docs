@@ -1,0 +1,5499 @@
+openapi: 3.0.3
+info:
+  title: Klarity API
+  description: Unified REST API for Polymarket intelligence — markets, events, leaderboard, and AI-powered analytics.
+  version: 2.0.0
+servers:
+  - url: https://api.klarity.trade
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags:
+        - Infrastructure
+      description: Checks ClickHouse connectivity and returns service health status.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  database:
+                    type: string
+                  timestamp:
+                    type: string
+                required:
+                  - status
+                  - database
+                  - timestamp
+                additionalProperties: false
+  /markets/recently-started:
+    get:
+      summary: Get recently started markets
+      tags:
+        - Markets
+      description: Returns active markets sorted by creation date (newest first).
+      parameters:
+        - schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 50
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+  /markets/ending-soon:
+    get:
+      summary: Get markets ending soon
+      tags:
+        - Markets
+      description: Returns active markets sorted by end date (soonest first).
+      parameters:
+        - schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 50
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+  /markets/{slug}/holders:
+    get:
+      summary: Get paginated holders for a market
+      tags:
+        - Markets
+      description: Returns holder positions with classification (whale, smart money, insider), optional profile enrichment,
+        and cursor-based pagination.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d+$
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: string
+            pattern: ^\d+$
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+          in: query
+          name: cursor
+          required: false
+        - schema:
+            type: string
+            enum:
+              - pnl
+              - size
+          in: query
+          name: sortBy
+          required: false
+        - schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          in: query
+          name: sortDirection
+          required: false
+        - schema:
+            type: string
+          in: query
+          name: includeProfiles
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        isPortfolioWhale:
+                          type: boolean
+                        isSmartMoney:
+                          type: boolean
+                        isInsider:
+                          type: boolean
+                        winRatePct:
+                          nullable: true
+                          type: number
+                        totalRealizedPnlUsd:
+                          nullable: true
+                          type: number
+                        closedPositions:
+                          nullable: true
+                          type: number
+                        portfolioValueUsd:
+                          nullable: true
+                          type: number
+                        ageHours:
+                          nullable: true
+                          type: number
+                        address:
+                          type: string
+                        profile:
+                          nullable: true
+                          type: object
+                          properties:
+                            name:
+                              nullable: true
+                              type: string
+                            pseudonym:
+                              nullable: true
+                              type: string
+                            displayName:
+                              nullable: true
+                              type: string
+                            profileImage:
+                              nullable: true
+                              type: string
+                            xUsername:
+                              nullable: true
+                              type: string
+                            verifiedBadge:
+                              type: boolean
+                            createdAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - name
+                            - pseudonym
+                            - displayName
+                            - profileImage
+                            - xUsername
+                            - verifiedBadge
+                            - createdAt
+                          additionalProperties: {}
+                        remainingShares:
+                          type: number
+                        boughtShares:
+                          nullable: true
+                          type: number
+                        soldShares:
+                          nullable: true
+                          type: number
+                        avgEntryPriceUsd:
+                          nullable: true
+                          type: number
+                        realizedPnlUsd:
+                          nullable: true
+                          type: number
+                        tokenId:
+                          nullable: true
+                          type: string
+                        priceUsd:
+                          nullable: true
+                          type: number
+                        unrealizedPnlUsd:
+                          nullable: true
+                          type: number
+                        remainingValueUsd:
+                          nullable: true
+                          type: number
+                        marketsTradedCount:
+                          nullable: true
+                          type: number
+                      required:
+                        - isPortfolioWhale
+                        - isSmartMoney
+                        - isInsider
+                        - winRatePct
+                        - totalRealizedPnlUsd
+                        - closedPositions
+                        - portfolioValueUsd
+                        - ageHours
+                        - address
+                        - profile
+                        - remainingShares
+                        - boughtShares
+                        - soldShares
+                        - avgEntryPriceUsd
+                        - realizedPnlUsd
+                        - tokenId
+                        - priceUsd
+                        - unrealizedPnlUsd
+                        - remainingValueUsd
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        type: string
+                      count:
+                        type: number
+                      limit:
+                        type: number
+                      hasMore:
+                        type: boolean
+                      nextCursor:
+                        nullable: true
+                        type: string
+                      eventTitle:
+                        nullable: true
+                        type: string
+                      marketQuestion:
+                        nullable: true
+                        type: string
+                      iconUrl:
+                        nullable: true
+                        type: string
+                    required:
+                      - marketId
+                      - slug
+                      - count
+                      - limit
+                      - hasMore
+                      - nextCursor
+                      - eventTitle
+                      - marketQuestion
+                      - iconUrl
+                    additionalProperties: false
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/whales:
+    get:
+      summary: Get portfolio whales for a market
+      tags:
+        - Markets
+      description: Returns participants classified as portfolio whales (large portfolio value) for the given market.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d+$
+          in: query
+          name: lookbackHours
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        isPortfolioWhale:
+                          type: boolean
+                        isSmartMoney:
+                          type: boolean
+                        isInsider:
+                          type: boolean
+                        winRatePct:
+                          nullable: true
+                          type: number
+                        totalRealizedPnlUsd:
+                          nullable: true
+                          type: number
+                        closedPositions:
+                          nullable: true
+                          type: number
+                        portfolioValueUsd:
+                          nullable: true
+                          type: number
+                        ageHours:
+                          nullable: true
+                          type: number
+                        address:
+                          type: string
+                        profile:
+                          nullable: true
+                          type: object
+                          properties:
+                            name:
+                              nullable: true
+                              type: string
+                            pseudonym:
+                              nullable: true
+                              type: string
+                            displayName:
+                              nullable: true
+                              type: string
+                            profileImage:
+                              nullable: true
+                              type: string
+                            xUsername:
+                              nullable: true
+                              type: string
+                            verifiedBadge:
+                              type: boolean
+                            createdAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - name
+                            - pseudonym
+                            - displayName
+                            - profileImage
+                            - xUsername
+                            - verifiedBadge
+                            - createdAt
+                          additionalProperties: {}
+                        shares:
+                          type: number
+                        positionValueUsd:
+                          nullable: true
+                          type: number
+                        walletAgeHours:
+                          nullable: true
+                          type: number
+                      required:
+                        - isPortfolioWhale
+                        - isSmartMoney
+                        - isInsider
+                        - winRatePct
+                        - totalRealizedPnlUsd
+                        - closedPositions
+                        - portfolioValueUsd
+                        - ageHours
+                        - address
+                        - profile
+                        - shares
+                        - positionValueUsd
+                        - walletAgeHours
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        type: string
+                    required:
+                      - marketId
+                      - slug
+                    additionalProperties: {}
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/insiders:
+    get:
+      summary: Get insider-flagged participants for a market
+      tags:
+        - Markets
+      description: Returns participants classified as insiders (new accounts with large early positions).
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        isPortfolioWhale:
+                          type: boolean
+                        isSmartMoney:
+                          type: boolean
+                        isInsider:
+                          type: boolean
+                        winRatePct:
+                          nullable: true
+                          type: number
+                        totalRealizedPnlUsd:
+                          nullable: true
+                          type: number
+                        closedPositions:
+                          nullable: true
+                          type: number
+                        portfolioValueUsd:
+                          nullable: true
+                          type: number
+                        ageHours:
+                          nullable: true
+                          type: number
+                        address:
+                          type: string
+                        profile:
+                          nullable: true
+                          type: object
+                          properties:
+                            name:
+                              nullable: true
+                              type: string
+                            pseudonym:
+                              nullable: true
+                              type: string
+                            displayName:
+                              nullable: true
+                              type: string
+                            profileImage:
+                              nullable: true
+                              type: string
+                            xUsername:
+                              nullable: true
+                              type: string
+                            verifiedBadge:
+                              type: boolean
+                            createdAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - name
+                            - pseudonym
+                            - displayName
+                            - profileImage
+                            - xUsername
+                            - verifiedBadge
+                            - createdAt
+                          additionalProperties: {}
+                        shares:
+                          type: number
+                        positionValueUsd:
+                          nullable: true
+                          type: number
+                        walletAgeHours:
+                          nullable: true
+                          type: number
+                      required:
+                        - isPortfolioWhale
+                        - isSmartMoney
+                        - isInsider
+                        - winRatePct
+                        - totalRealizedPnlUsd
+                        - closedPositions
+                        - portfolioValueUsd
+                        - ageHours
+                        - address
+                        - profile
+                        - shares
+                        - positionValueUsd
+                        - walletAgeHours
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        type: string
+                    required:
+                      - marketId
+                      - slug
+                    additionalProperties: {}
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/smartmoney:
+    get:
+      summary: Get smart money participants for a market
+      tags:
+        - Markets
+      description: Returns participants classified as smart money (high win rate, high PnL, many closed positions).
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        isPortfolioWhale:
+                          type: boolean
+                        isSmartMoney:
+                          type: boolean
+                        isInsider:
+                          type: boolean
+                        winRatePct:
+                          nullable: true
+                          type: number
+                        totalRealizedPnlUsd:
+                          nullable: true
+                          type: number
+                        closedPositions:
+                          nullable: true
+                          type: number
+                        portfolioValueUsd:
+                          nullable: true
+                          type: number
+                        ageHours:
+                          nullable: true
+                          type: number
+                        address:
+                          type: string
+                        profile:
+                          nullable: true
+                          type: object
+                          properties:
+                            name:
+                              nullable: true
+                              type: string
+                            pseudonym:
+                              nullable: true
+                              type: string
+                            displayName:
+                              nullable: true
+                              type: string
+                            profileImage:
+                              nullable: true
+                              type: string
+                            xUsername:
+                              nullable: true
+                              type: string
+                            verifiedBadge:
+                              type: boolean
+                            createdAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - name
+                            - pseudonym
+                            - displayName
+                            - profileImage
+                            - xUsername
+                            - verifiedBadge
+                            - createdAt
+                          additionalProperties: {}
+                        shares:
+                          type: number
+                        positionValueUsd:
+                          nullable: true
+                          type: number
+                        walletAgeHours:
+                          nullable: true
+                          type: number
+                      required:
+                        - isPortfolioWhale
+                        - isSmartMoney
+                        - isInsider
+                        - winRatePct
+                        - totalRealizedPnlUsd
+                        - closedPositions
+                        - portfolioValueUsd
+                        - ageHours
+                        - address
+                        - profile
+                        - shares
+                        - positionValueUsd
+                        - walletAgeHours
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        type: string
+                    required:
+                      - marketId
+                      - slug
+                    additionalProperties: {}
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/analytics:
+    get:
+      summary: Get market analytics aggregate
+      tags:
+        - Markets
+      description: Returns aggregated analytics including holder counts, PnL breakdown, and trader type distribution.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holders:
+                    type: object
+                    properties:
+                      yes_holders:
+                        type: number
+                      no_holders:
+                        type: number
+                      total_holders:
+                        type: number
+                    required:
+                      - yes_holders
+                      - no_holders
+                      - total_holders
+                    additionalProperties: false
+                  pnl:
+                    type: object
+                    properties:
+                      yes_holders_total_pnl:
+                        type: number
+                      no_holders_total_pnl:
+                        type: number
+                      total_pnl:
+                        type: number
+                    required:
+                      - yes_holders_total_pnl
+                      - no_holders_total_pnl
+                      - total_pnl
+                    additionalProperties: false
+                  trader_types:
+                    type: object
+                    properties:
+                      yes:
+                        type: object
+                        properties:
+                          insider_holders:
+                            type: number
+                          smart_money_holders:
+                            type: number
+                          whale_holders:
+                            type: number
+                        required:
+                          - insider_holders
+                          - smart_money_holders
+                          - whale_holders
+                        additionalProperties: false
+                      no:
+                        type: object
+                        properties:
+                          insider_holders:
+                            type: number
+                          smart_money_holders:
+                            type: number
+                          whale_holders:
+                            type: number
+                        required:
+                          - insider_holders
+                          - smart_money_holders
+                          - whale_holders
+                        additionalProperties: false
+                    required:
+                      - yes
+                      - no
+                    additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        type: string
+                    required:
+                      - marketId
+                      - slug
+                    additionalProperties: false
+                required:
+                  - holders
+                  - pnl
+                  - trader_types
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/trades:
+    get:
+      summary: Get recent trades for a market
+      tags:
+        - Markets
+      description: Returns paginated trades with trader classification enrichment and optional profile data.
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d+$
+          in: query
+          name: limit
+          required: false
+          description: Maximum trades to return (1-100, default 25)
+        - schema:
+            type: string
+            pattern: ^\d+$
+          in: query
+          name: offset
+          required: false
+          description: Offset for pagination
+        - schema:
+            type: string
+          in: query
+          name: includeProfiles
+          required: false
+          description: Include Polymarket profile data
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        isPortfolioWhale:
+                          type: boolean
+                        isSmartMoney:
+                          type: boolean
+                        isInsider:
+                          type: boolean
+                        winRatePct:
+                          nullable: true
+                          type: number
+                        totalRealizedPnlUsd:
+                          nullable: true
+                          type: number
+                        closedPositions:
+                          nullable: true
+                          type: number
+                        portfolioValueUsd:
+                          nullable: true
+                          type: number
+                        ageHours:
+                          nullable: true
+                          type: number
+                        id:
+                          type: string
+                        address:
+                          type: string
+                        profile:
+                          nullable: true
+                          type: object
+                          properties:
+                            name:
+                              nullable: true
+                              type: string
+                            pseudonym:
+                              nullable: true
+                              type: string
+                            displayName:
+                              nullable: true
+                              type: string
+                            profileImage:
+                              nullable: true
+                              type: string
+                            xUsername:
+                              nullable: true
+                              type: string
+                            verifiedBadge:
+                              type: boolean
+                            createdAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - name
+                            - pseudonym
+                            - displayName
+                            - profileImage
+                            - xUsername
+                            - verifiedBadge
+                            - createdAt
+                          additionalProperties: {}
+                        priceUsd:
+                          type: number
+                        shares:
+                          type: number
+                        valueUsd:
+                          type: number
+                        timestamp:
+                          type: string
+                        conditionId:
+                          type: string
+                        marketSlug:
+                          nullable: true
+                          type: string
+                        eventTitle:
+                          nullable: true
+                          type: string
+                        marketQuestion:
+                          nullable: true
+                          type: string
+                        outcomeTitle:
+                          nullable: true
+                          type: string
+                        iconUrl:
+                          nullable: true
+                          type: string
+                      required:
+                        - isPortfolioWhale
+                        - isSmartMoney
+                        - isInsider
+                        - winRatePct
+                        - totalRealizedPnlUsd
+                        - closedPositions
+                        - portfolioValueUsd
+                        - ageHours
+                        - id
+                        - address
+                        - profile
+                        - priceUsd
+                        - shares
+                        - valueUsd
+                        - timestamp
+                        - conditionId
+                        - marketSlug
+                        - eventTitle
+                        - marketQuestion
+                        - outcomeTitle
+                        - iconUrl
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        nullable: true
+                        type: string
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      hasMore:
+                        type: boolean
+                    required:
+                      - marketId
+                      - slug
+                      - limit
+                      - offset
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/discover:
+    post:
+      summary: Discover markets with filters, deltas, and cursor pagination
+      tags:
+        - Markets
+      description: Query the pre-computed discovery serving table with metric filters, delta calculations, tag filters, and
+        cursor-based pagination. Use explain=true in non-production for SQL debugging.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - volume
+                      - liquidity
+                      - holders_total
+                      - holders_yes
+                      - holders_no
+                      - holders_whale
+                      - holders_smart_money
+                      - holders_insider
+                      - price
+                deltas:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metric:
+                        type: string
+                        enum:
+                          - volume
+                          - liquidity
+                          - holders_total
+                          - holders_yes
+                          - holders_no
+                          - holders_whale
+                          - holders_smart_money
+                          - holders_insider
+                          - price
+                      window:
+                        type: string
+                        enum:
+                          - 5m
+                          - 15m
+                          - 30m
+                          - 1h
+                          - 4h
+                          - 24h
+                          - 7d
+                          - 30d
+                      since:
+                        type: string
+                        format: date-time
+                        pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      compare:
+                        type: string
+                        enum:
+                          - delta_abs
+                          - delta_pct
+                    required:
+                      - metric
+                      - compare
+                filters:
+                  allOf:
+                    - $ref: "#/components/schemas/schema0Input"
+                sort:
+                  anyOf:
+                    - type: object
+                      properties:
+                        metric:
+                          type: string
+                          enum:
+                            - volume
+                            - liquidity
+                            - holders_total
+                            - holders_yes
+                            - holders_no
+                            - holders_whale
+                            - holders_smart_money
+                            - holders_insider
+                            - price
+                            - end_date
+                            - created_at
+                        direction:
+                          default: desc
+                          type: string
+                          enum:
+                            - asc
+                            - desc
+                        window:
+                          type: string
+                          enum:
+                            - 5m
+                            - 15m
+                            - 30m
+                            - 1h
+                            - 4h
+                            - 24h
+                            - 7d
+                            - 30d
+                        compare:
+                          type: string
+                          enum:
+                            - delta_abs
+                            - delta_pct
+                      required:
+                        - metric
+                    - type: object
+                      properties:
+                        primary:
+                          type: object
+                          properties:
+                            metric:
+                              type: string
+                              enum:
+                                - volume
+                                - liquidity
+                                - holders_total
+                                - holders_yes
+                                - holders_no
+                                - holders_whale
+                                - holders_smart_money
+                                - holders_insider
+                                - price
+                                - end_date
+                                - created_at
+                            direction:
+                              default: desc
+                              type: string
+                              enum:
+                                - asc
+                                - desc
+                            window:
+                              type: string
+                              enum:
+                                - 5m
+                                - 15m
+                                - 30m
+                                - 1h
+                                - 4h
+                                - 24h
+                                - 7d
+                                - 30d
+                            compare:
+                              type: string
+                              enum:
+                                - delta_abs
+                                - delta_pct
+                          required:
+                            - metric
+                        fallback:
+                          type: object
+                          properties:
+                            metric:
+                              type: string
+                              enum:
+                                - volume
+                                - liquidity
+                                - holders_total
+                                - holders_yes
+                                - holders_no
+                                - holders_whale
+                                - holders_smart_money
+                                - holders_insider
+                                - price
+                                - end_date
+                                - created_at
+                            direction:
+                              default: desc
+                              type: string
+                              enum:
+                                - asc
+                                - desc
+                            window:
+                              type: string
+                              enum:
+                                - 5m
+                                - 15m
+                                - 30m
+                                - 1h
+                                - 4h
+                                - 24h
+                                - 7d
+                                - 30d
+                            compare:
+                              type: string
+                              enum:
+                                - delta_abs
+                                - delta_pct
+                          required:
+                            - metric
+                      required:
+                        - primary
+                pagination:
+                  type: object
+                  properties:
+                    cursor:
+                      type: string
+                    limit:
+                      default: 20
+                      type: number
+                      minimum: 1
+                      maximum: 100
+                options:
+                  type: object
+                  properties:
+                    minVolume:
+                      default: 0
+                      type: number
+                      minimum: 0
+                    search:
+                      type: string
+                      maxLength: 200
+                    createdAfter:
+                      type: string
+                      format: date-time
+                      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    endingBefore:
+                      type: string
+                      format: date-time
+                      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    endingAfter:
+                      type: string
+                      format: date-time
+                      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                require:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metric:
+                        type: string
+                        enum:
+                          - volume
+                          - liquidity
+                          - holders_total
+                      window:
+                        type: string
+                        enum:
+                          - 5m
+                          - 15m
+                          - 30m
+                          - 1h
+                          - 4h
+                          - 24h
+                          - 7d
+                          - 30d
+                      compare:
+                        type: string
+                        enum:
+                          - delta_abs
+                          - delta_pct
+                    required:
+                      - metric
+                      - window
+                      - compare
+                min_age_seconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                nulls:
+                  type: string
+                  enum:
+                    - exclude
+                    - last
+                    - zero
+                as_of:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                tags_any:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 200
+                tags_all:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 200
+                tags_none:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 200
+                price_min:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                price_max:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                end_date_min:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                end_date_max:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                created_at_min:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                created_at_max:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                stages:
+                  minItems: 1
+                  maxItems: 5
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - new
+                      - building
+                      - peak
+                      - settling
+                      - resolving
+                search:
+                  type: string
+                  maxLength: 200
+                explain:
+                  default: false
+                  type: boolean
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        market_id:
+                          type: string
+                        condition_id:
+                          type: string
+                        slug:
+                          type: string
+                        question:
+                          type: string
+                        category:
+                          type: string
+                        active:
+                          type: boolean
+                        closed:
+                          type: boolean
+                        end_date:
+                          nullable: true
+                          type: string
+                        created_at:
+                          nullable: true
+                          type: string
+                        price:
+                          type: number
+                        age_seconds:
+                          type: number
+                        available_windows:
+                          type: array
+                          items:
+                            type: string
+                        stage:
+                          type: string
+                          enum:
+                            - new
+                            - building
+                            - peak
+                            - settling
+                            - resolving
+                        metrics:
+                          type: object
+                          properties:
+                            volume:
+                              type: number
+                            liquidity:
+                              type: number
+                            holders_total:
+                              type: number
+                            holders_yes:
+                              type: number
+                            holders_no:
+                              type: number
+                            holders_whale:
+                              type: number
+                            holders_smart_money:
+                              type: number
+                            holders_insider:
+                              type: number
+                            price:
+                              type: number
+                            smart_money_side:
+                              type: string
+                              enum:
+                                - yes
+                                - no
+                                - split
+                            smart_money_conviction:
+                              nullable: true
+                              type: number
+                            whale_side:
+                              type: string
+                              enum:
+                                - yes
+                                - no
+                                - split
+                            whale_conviction:
+                              nullable: true
+                              type: number
+                            insider_side:
+                              type: string
+                              enum:
+                                - yes
+                                - no
+                                - split
+                            insider_conviction:
+                              type: number
+                            insider_recent_count:
+                              type: number
+                          additionalProperties: false
+                        deltas:
+                          type: object
+                          additionalProperties:
+                            type: object
+                            properties:
+                              abs:
+                                nullable: true
+                                type: number
+                              pct:
+                                nullable: true
+                                type: number
+                              status:
+                                type: string
+                                enum:
+                                  - ok
+                                  - too_new
+                                  - missing_history
+                                  - div0
+                            required:
+                              - status
+                            additionalProperties: false
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        outcomePrices:
+                          type: array
+                          items:
+                            type: string
+                        clobTokenIds:
+                          type: array
+                          items:
+                            type: string
+                        event_id:
+                          type: string
+                      required:
+                        - market_id
+                        - condition_id
+                        - slug
+                        - question
+                        - category
+                        - active
+                        - closed
+                        - age_seconds
+                        - available_windows
+                        - stage
+                        - metrics
+                        - deltas
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      has_more:
+                        type: boolean
+                      next_cursor:
+                        type: string
+                    required:
+                      - has_more
+                    additionalProperties: false
+                  explain:
+                    type: object
+                    properties:
+                      phase1_sql:
+                        type: string
+                      phase2_sql:
+                        type: string
+                    additionalProperties: false
+                required:
+                  - markets
+                  - pagination
+                additionalProperties: false
+  /markets/{slug}/volume-profile:
+    get:
+      summary: Get volume profile for a market
+      tags:
+        - Markets
+      description: Returns hourly volume buckets showing when trading activity occurred throughout market lifetime.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        hour:
+                          type: string
+                        volumeUsd:
+                          type: number
+                        tradeCount:
+                          type: number
+                        buyVolumeUsd:
+                          type: number
+                        sellVolumeUsd:
+                          type: number
+                        uniqueTraders:
+                          type: number
+                      required:
+                        - hour
+                        - volumeUsd
+                        - tradeCount
+                        - buyVolumeUsd
+                        - sellVolumeUsd
+                        - uniqueTraders
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      conditionId:
+                        type: string
+                      slug:
+                        type: string
+                      totalVolumeUsd:
+                        type: number
+                      totalTrades:
+                        type: number
+                      firstTradeAt:
+                        nullable: true
+                        type: string
+                      lastTradeAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - conditionId
+                      - slug
+                      - totalVolumeUsd
+                      - totalTrades
+                      - firstTradeAt
+                      - lastTradeAt
+                    additionalProperties: false
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/entry-timing:
+    get:
+      summary: Get entry timing analysis for a market
+      tags:
+        - Markets
+      description: Returns volume over time with cumulative totals, showing optimal entry windows.
+      parameters:
+        - schema:
+            default: hourly
+            type: string
+            enum:
+              - hourly
+              - daily
+          in: query
+          name: granularity
+          required: false
+        - schema:
+            default: 90
+            type: integer
+            minimum: 1
+            maximum: 365
+          in: query
+          name: days
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        bucket:
+                          type: string
+                        volumeUsd:
+                          type: number
+                        tradeCount:
+                          type: number
+                        cumulativeVolumeUsd:
+                          type: number
+                      required:
+                        - bucket
+                        - volumeUsd
+                        - tradeCount
+                        - cumulativeVolumeUsd
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      conditionId:
+                        type: string
+                      slug:
+                        type: string
+                      granularity:
+                        type: string
+                        enum:
+                          - hourly
+                          - daily
+                      totalVolumeUsd:
+                        type: number
+                    required:
+                      - conditionId
+                      - slug
+                      - granularity
+                      - totalVolumeUsd
+                    additionalProperties: false
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/top-traders:
+    get:
+      summary: Get top traders for a market
+      tags:
+        - Markets
+      description: Returns per-market trader leaderboard ranked by volume, with buy/sell direction.
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        trader:
+                          type: string
+                        volumeUsd:
+                          type: number
+                        buyVolumeUsd:
+                          type: number
+                        sellVolumeUsd:
+                          type: number
+                        tradeCount:
+                          type: number
+                        firstTradeAt:
+                          type: string
+                        lastTradeAt:
+                          type: string
+                        netDirection:
+                          type: string
+                          enum:
+                            - buyer
+                            - seller
+                            - neutral
+                      required:
+                        - trader
+                        - volumeUsd
+                        - buyVolumeUsd
+                        - sellVolumeUsd
+                        - tradeCount
+                        - firstTradeAt
+                        - lastTradeAt
+                        - netDirection
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      conditionId:
+                        type: string
+                      slug:
+                        type: string
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      hasMore:
+                        type: boolean
+                    required:
+                      - conditionId
+                      - slug
+                      - limit
+                      - offset
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - data
+                  - meta
+                additionalProperties: false
+  /events/trending-tags:
+    get:
+      summary: Get trending tags ranked by volume activity
+      tags:
+        - Events
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 24h
+            type: string
+            enum:
+              - 5m
+              - 1h
+              - 24h
+          in: query
+          name: window
+          required: false
+        - schema:
+            default: 0
+            type: number
+            minimum: 0
+          in: query
+          name: min_volume
+          required: false
+        - schema:
+            default: 1
+            type: integer
+            minimum: 1
+            maximum: 9007199254740991
+          in: query
+          name: min_events
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag:
+                          type: string
+                        total_volume:
+                          type: number
+                        volume_change_abs:
+                          nullable: true
+                          type: number
+                        volume_change_pct:
+                          nullable: true
+                          type: number
+                        event_count:
+                          type: number
+                        total_liquidity:
+                          type: number
+                      required:
+                        - tag
+                        - total_volume
+                        - volume_change_abs
+                        - volume_change_pct
+                        - event_count
+                        - total_liquidity
+                      additionalProperties: false
+                  window:
+                    type: string
+                  cached_at:
+                    nullable: true
+                    type: string
+                required:
+                  - tags
+                  - window
+                  - cached_at
+                additionalProperties: false
+  /events/discover:
+    post:
+      summary: Discover events with filters, deltas, and cursor pagination
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - volume
+                      - liquidity
+                      - market_count
+                      - holders_total
+                      - holders_yes
+                      - holders_no
+                      - holders_whale
+                      - holders_smart_money
+                      - holders_insider
+                      - price_movement
+                deltas:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metric:
+                        type: string
+                        enum:
+                          - volume
+                          - liquidity
+                          - market_count
+                          - holders_total
+                          - holders_yes
+                          - holders_no
+                          - holders_whale
+                          - holders_smart_money
+                          - holders_insider
+                          - price_movement
+                      window:
+                        type: string
+                        enum:
+                          - 5m
+                          - 15m
+                          - 30m
+                          - 1h
+                          - 4h
+                          - 24h
+                          - 7d
+                          - 30d
+                      since:
+                        type: string
+                        format: date-time
+                        pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      compare:
+                        type: string
+                        enum:
+                          - delta_abs
+                          - delta_pct
+                    required:
+                      - metric
+                      - compare
+                filters:
+                  allOf:
+                    - $ref: "#/components/schemas/schema0Input"
+                sort:
+                  type: object
+                  properties:
+                    metric:
+                      type: string
+                      enum:
+                        - volume
+                        - liquidity
+                        - market_count
+                        - holders_total
+                        - holders_yes
+                        - holders_no
+                        - holders_whale
+                        - holders_smart_money
+                        - holders_insider
+                        - price_movement
+                        - end_date
+                        - creation_date
+                    direction:
+                      default: desc
+                      type: string
+                      enum:
+                        - asc
+                        - desc
+                    window:
+                      type: string
+                      enum:
+                        - 5m
+                        - 15m
+                        - 30m
+                        - 1h
+                        - 4h
+                        - 24h
+                        - 7d
+                        - 30d
+                    compare:
+                      type: string
+                      enum:
+                        - delta_abs
+                        - delta_pct
+                  required:
+                    - metric
+                pagination:
+                  type: object
+                  properties:
+                    cursor:
+                      type: string
+                    limit:
+                      default: 20
+                      type: number
+                      minimum: 1
+                      maximum: 100
+                options:
+                  type: object
+                  properties:
+                    minVolume:
+                      default: 0
+                      type: number
+                      minimum: 0
+                require:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metric:
+                        type: string
+                        enum:
+                          - volume
+                          - liquidity
+                          - market_count
+                          - holders_total
+                          - holders_yes
+                          - holders_no
+                          - holders_whale
+                          - holders_smart_money
+                          - holders_insider
+                          - price_movement
+                      window:
+                        type: string
+                        enum:
+                          - 5m
+                          - 15m
+                          - 30m
+                          - 1h
+                          - 4h
+                          - 24h
+                          - 7d
+                          - 30d
+                      compare:
+                        type: string
+                        enum:
+                          - delta_abs
+                          - delta_pct
+                    required:
+                      - metric
+                      - window
+                      - compare
+                min_age_seconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                nulls:
+                  type: string
+                  enum:
+                    - exclude
+                    - last
+                    - zero
+                as_of:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                tags_any:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 200
+                tags_all:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 200
+                tags_none:
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 200
+                end_date_min:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                end_date_max:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                created_at_min:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                created_at_max:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                search:
+                  type: string
+                  maxLength: 200
+                include_markets:
+                  default: all
+                  description: 'Controls which markets are included in each event. "all": every market (default). "real": only markets
+                    with real activity — keeps markets where active=true OR volume > 0 OR liquidity > 0, strips
+                    zero-volume zero-liquidity placeholder markets (e.g. "Will Person XY..." with no trading history).
+                    "none": no markets array (fastest, use when only event-level data is needed).'
+                  type: string
+                  enum:
+                    - all
+                    - real
+                    - none
+                explain:
+                  default: false
+                  type: boolean
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        event_id:
+                          type: string
+                        id:
+                          type: string
+                        slug:
+                          type: string
+                        title:
+                          type: string
+                        subtitle:
+                          type: string
+                        description:
+                          type: string
+                        category:
+                          type: string
+                        subcategory:
+                          type: string
+                        image:
+                          type: string
+                        icon:
+                          type: string
+                        active:
+                          type: boolean
+                        closed:
+                          type: boolean
+                        end_date:
+                          nullable: true
+                          type: string
+                        creation_date:
+                          nullable: true
+                          type: string
+                        neg_risk:
+                          type: boolean
+                        enable_neg_risk:
+                          type: boolean
+                        parent_event_id:
+                          nullable: true
+                          type: string
+                        age_seconds:
+                          type: number
+                        available_windows:
+                          type: array
+                          items:
+                            type: string
+                        metrics:
+                          type: object
+                          properties:
+                            volume:
+                              type: number
+                            liquidity:
+                              type: number
+                            market_count:
+                              type: number
+                            holders_total:
+                              type: number
+                            holders_yes:
+                              type: number
+                            holders_no:
+                              type: number
+                            holders_whale:
+                              type: number
+                            holders_smart_money:
+                              type: number
+                            holders_insider:
+                              type: number
+                          additionalProperties: false
+                        deltas:
+                          type: object
+                          additionalProperties:
+                            type: object
+                            properties:
+                              abs:
+                                nullable: true
+                                type: number
+                              pct:
+                                nullable: true
+                                type: number
+                              status:
+                                type: string
+                                enum:
+                                  - ok
+                                  - too_new
+                                  - missing_history
+                                  - div0
+                            required:
+                              - status
+                            additionalProperties: false
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        market_count:
+                          type: number
+                        markets:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: {}
+                      required:
+                        - event_id
+                        - id
+                        - slug
+                        - title
+                        - subtitle
+                        - description
+                        - category
+                        - subcategory
+                        - image
+                        - icon
+                        - active
+                        - closed
+                        - neg_risk
+                        - enable_neg_risk
+                        - age_seconds
+                        - available_windows
+                        - metrics
+                        - deltas
+                        - tags
+                        - market_count
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      has_more:
+                        type: boolean
+                      next_cursor:
+                        type: string
+                    required:
+                      - has_more
+                    additionalProperties: false
+                  explain:
+                    type: object
+                    properties:
+                      phase1_sql:
+                        type: string
+                      phase2_sql:
+                        type: string
+                    additionalProperties: false
+                required:
+                  - events
+                  - pagination
+                additionalProperties: false
+  /events/{slug}:
+    get:
+      summary: Get a single event by slug or ID with full metrics and deltas
+      tags:
+        - Events
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event_id:
+                    type: string
+                  id:
+                    type: string
+                  slug:
+                    type: string
+                  title:
+                    type: string
+                  subtitle:
+                    type: string
+                  description:
+                    type: string
+                  category:
+                    type: string
+                  subcategory:
+                    type: string
+                  image:
+                    type: string
+                  icon:
+                    type: string
+                  active:
+                    type: boolean
+                  closed:
+                    type: boolean
+                  end_date:
+                    nullable: true
+                    type: string
+                  creation_date:
+                    nullable: true
+                    type: string
+                  neg_risk:
+                    type: boolean
+                  enable_neg_risk:
+                    type: boolean
+                  parent_event_id:
+                    nullable: true
+                    type: string
+                  age_seconds:
+                    type: number
+                  available_windows:
+                    type: array
+                    items:
+                      type: string
+                  metrics:
+                    type: object
+                    properties:
+                      volume:
+                        type: number
+                      liquidity:
+                        type: number
+                      market_count:
+                        type: number
+                      holders_total:
+                        type: number
+                      holders_yes:
+                        type: number
+                      holders_no:
+                        type: number
+                      holders_whale:
+                        type: number
+                      holders_smart_money:
+                        type: number
+                      holders_insider:
+                        type: number
+                    additionalProperties: false
+                  deltas:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        abs:
+                          nullable: true
+                          type: number
+                        pct:
+                          nullable: true
+                          type: number
+                        status:
+                          type: string
+                          enum:
+                            - ok
+                            - too_new
+                            - missing_history
+                            - div0
+                      required:
+                        - status
+                      additionalProperties: false
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  market_count:
+                    type: number
+                  markets:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: {}
+                required:
+                  - event_id
+                  - id
+                  - slug
+                  - title
+                  - subtitle
+                  - description
+                  - category
+                  - subcategory
+                  - image
+                  - icon
+                  - active
+                  - closed
+                  - neg_risk
+                  - enable_neg_risk
+                  - age_seconds
+                  - available_windows
+                  - metrics
+                  - deltas
+                  - tags
+                  - market_count
+                additionalProperties: {}
+  /leaderboard/global:
+    get:
+      summary: Get the global leaderboard snapshot
+      tags:
+        - Leaderboard
+      description: Returns top traders ranked by P&L. Use advanced=true to include risk-adjusted metrics (Sharpe, Sortino,
+        Calmar, max drawdown, Kelly criterion, etc.). Supports sorting by any metric, filtering, and cursor-based
+        pagination.
+      parameters:
+        - schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 1000
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+          in: query
+          name: cursor
+          required: false
+        - schema:
+            default: pnl
+            type: string
+            enum:
+              - pnl
+              - total_pnl
+              - overall_pnl
+              - realized_pnl
+              - win_rate
+              - winRate
+              - total_wins
+              - totalWins
+              - total_losses
+              - totalLosses
+              - current_value
+              - currentValue
+              - active_positions
+              - activePositions
+              - total_closed_positions
+              - totalClosedPositions
+              - volume
+              - total_volume
+              - totalVolume
+              - position_count
+              - positionCount
+              - sharpe_ratio
+              - sharpeRatio
+              - sharpe
+              - sortino_ratio
+              - sortinoRatio
+              - sortino
+              - calmar_ratio
+              - calmarRatio
+              - calmar
+              - max_drawdown
+              - maxDrawdown
+              - roi
+              - smart_score
+              - smartScore
+              - score
+              - confidence_score
+              - confidenceScore
+              - win_rate_weighted
+              - winRateWeighted
+          in: query
+          name: sortBy
+          required: false
+          description: Sort field. pnl/total_pnl = total PnL, realized_pnl = realized only
+        - schema:
+            default: DESC
+            type: string
+            enum:
+              - ASC
+              - DESC
+          in: query
+          name: sortOrder
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - "true"
+              - type: string
+                enum:
+                  - "false"
+              - type: boolean
+          in: query
+          name: advanced
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: minVolume
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: maxVolume
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: minPnl
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: maxPnl
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: minSmartScore
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: maxSmartScore
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: minWinRate
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: maxWinRate
+          required: false
+        - schema:
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: minPositions
+          required: false
+        - schema:
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: maxPositions
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - "true"
+              - type: string
+                enum:
+                  - "false"
+              - type: boolean
+          in: query
+          name: isActive
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                          description: Wallet address
+                        displayName:
+                          description: Polymarket display name
+                          type: string
+                        avatarUrl:
+                          description: Polymarket avatar URL
+                          type: string
+                        overallPnl:
+                          type: number
+                          description: Total PnL = realized + unrealized (matches Polymarket display)
+                        winRate:
+                          type: number
+                          description: Win rate (0-1) from closed positions
+                        totalWins:
+                          type: number
+                          description: Sum of positive realized PnL from closed positions
+                        totalLosses:
+                          type: number
+                          description: Sum of absolute negative realized PnL from closed positions
+                        currentValue:
+                          type: number
+                          description: Current portfolio value in USD
+                        activePositions:
+                          type: number
+                          description: Number of active positions
+                        totalClosedPositions:
+                          description: Number of closed positions
+                          type: number
+                        updatedAt:
+                          description: Last update timestamp
+                          type: string
+                        totalVolume:
+                          type: number
+                        positionCount:
+                          type: number
+                        avgPositionSize:
+                          type: number
+                        advanced:
+                          type: object
+                          properties:
+                            sharpeRatio:
+                              nullable: true
+                              type: number
+                            sortinoRatio:
+                              nullable: true
+                              type: number
+                            calmarRatio:
+                              nullable: true
+                              type: number
+                            maxDrawdown:
+                              nullable: true
+                              type: number
+                            currentStreak:
+                              nullable: true
+                              type: number
+                            bestStreak:
+                              nullable: true
+                              type: number
+                            worstStreak:
+                              nullable: true
+                              type: number
+                            roi:
+                              nullable: true
+                              type: number
+                            kellyFraction:
+                              nullable: true
+                              type: number
+                            avgEdge:
+                              nullable: true
+                              type: number
+                            winRateWeighted:
+                              nullable: true
+                              type: number
+                            bestTag:
+                              nullable: true
+                              type: string
+                            bestTagPnl:
+                              nullable: true
+                              type: number
+                            smartScore:
+                              nullable: true
+                              type: number
+                            profitabilityScore:
+                              nullable: true
+                              type: number
+                            riskEfficiencyScore:
+                              nullable: true
+                              type: number
+                            confidenceScore:
+                              nullable: true
+                              type: number
+                            isActive:
+                              type: boolean
+                            lastTradeAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - sharpeRatio
+                            - sortinoRatio
+                            - calmarRatio
+                            - maxDrawdown
+                            - currentStreak
+                            - bestStreak
+                            - worstStreak
+                            - roi
+                            - kellyFraction
+                            - avgEdge
+                            - winRateWeighted
+                            - bestTag
+                            - bestTagPnl
+                            - smartScore
+                            - profitabilityScore
+                            - riskEfficiencyScore
+                            - confidenceScore
+                            - isActive
+                            - lastTradeAt
+                          additionalProperties: false
+                      required:
+                        - address
+                        - overallPnl
+                        - winRate
+                        - totalWins
+                        - totalLosses
+                        - currentValue
+                        - activePositions
+                      additionalProperties: false
+                  total:
+                    type: number
+                  updatedAt:
+                    type: string
+                  nextCursor:
+                    nullable: true
+                    type: string
+                required:
+                  - rows
+                  - total
+                  - updatedAt
+                additionalProperties: false
+  /leaderboard/biggest-movers:
+    get:
+      summary: Get biggest PnL movers (winners and losers)
+      tags:
+        - Leaderboard
+      description: Returns traders with the largest PnL gains and losses over a time window (1d, 1w, 1m).
+      parameters:
+        - schema:
+            default: 1d
+            type: string
+            enum:
+              - 1d
+              - 1w
+              - 1m
+          in: query
+          name: window
+          required: false
+        - schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 50
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: both
+            type: string
+            enum:
+              - winners
+              - losers
+              - both
+          in: query
+          name: type
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  window:
+                    type: string
+                  winners:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                        pnlChange:
+                          type: number
+                        currentPnl:
+                          type: number
+                        previousPnl:
+                          type: number
+                      required:
+                        - address
+                        - pnlChange
+                        - currentPnl
+                        - previousPnl
+                      additionalProperties: false
+                  losers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                        pnlChange:
+                          type: number
+                        currentPnl:
+                          type: number
+                        previousPnl:
+                          type: number
+                      required:
+                        - address
+                        - pnlChange
+                        - currentPnl
+                        - previousPnl
+                      additionalProperties: false
+                  updatedAt:
+                    type: string
+                required:
+                  - window
+                  - winners
+                  - losers
+                  - updatedAt
+                additionalProperties: false
+  /wallets/{address}/similar:
+    get:
+      summary: Get similar wallets for an address
+      tags:
+        - Clusters
+      description: Returns wallets with similar trading behavior based on hybrid similarity (60% behavioral/Jaccard + 40%
+        funding/shared sources).
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minSimilarity
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet:
+                    type: string
+                  cluster:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      size:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                    required:
+                      - id
+                      - size
+                    additionalProperties: false
+                  similarWallets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                        jaccard:
+                          type: number
+                        sharedMarkets:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        score:
+                          type: number
+                        hybridScore:
+                          type: number
+                        fundingLink:
+                          type: object
+                          properties:
+                            sharedSources:
+                              type: integer
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            sharedVolume:
+                              type: number
+                            fundingScore:
+                              type: number
+                          required:
+                            - sharedSources
+                            - sharedVolume
+                            - fundingScore
+                          additionalProperties: false
+                      required:
+                        - address
+                        - jaccard
+                        - sharedMarkets
+                        - score
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minSimilarity:
+                        type: number
+                      totalSimilar:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      returnedCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                    required:
+                      - limit
+                      - minSimilarity
+                      - totalSimilar
+                      - returnedCount
+                    additionalProperties: false
+                required:
+                  - wallet
+                  - cluster
+                  - similarWallets
+                  - meta
+                additionalProperties: false
+  /wallets/{address}/similar/behavioral:
+    get:
+      summary: Get behaviorally similar wallets
+      tags:
+        - Clusters
+      description: Returns wallets with similar trading behavior based purely on Jaccard similarity of traded markets. No
+        funding data.
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minSimilarity
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                      - behavioral
+                  similarWallets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                        jaccard:
+                          type: number
+                        sharedMarkets:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        score:
+                          type: number
+                      required:
+                        - address
+                        - jaccard
+                        - sharedMarkets
+                        - score
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minSimilarity:
+                        type: number
+                      returnedCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      description:
+                        type: string
+                    required:
+                      - limit
+                      - minSimilarity
+                      - returnedCount
+                      - description
+                    additionalProperties: false
+                required:
+                  - wallet
+                  - type
+                  - similarWallets
+                  - meta
+                additionalProperties: false
+  /wallets/{address}/similar/funding:
+    get:
+      summary: Get funding-linked wallets
+      tags:
+        - Clusters
+      description: Returns wallets that share the same funding sources (external addresses that deposited to both wallets).
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minSharedVolume
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                      - funding
+                  linkedWallets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                        sharedSources:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        sharedVolume:
+                          type: number
+                        fundingScore:
+                          type: number
+                        firstSharedAt:
+                          type: string
+                        lastSharedAt:
+                          type: string
+                      required:
+                        - address
+                        - sharedSources
+                        - sharedVolume
+                        - fundingScore
+                        - firstSharedAt
+                        - lastSharedAt
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minSharedVolume:
+                        type: number
+                      returnedCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      description:
+                        type: string
+                    required:
+                      - limit
+                      - minSharedVolume
+                      - returnedCount
+                      - description
+                    additionalProperties: false
+                required:
+                  - wallet
+                  - type
+                  - linkedWallets
+                  - meta
+                additionalProperties: false
+  /markets/{slug}/clusters:
+    get:
+      summary: Get cluster distribution for a market
+      tags:
+        - Clusters
+      description: Returns wallet clusters holding positions in this market, suitable for Bubblemaps visualization.
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minClusterSize
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: boolean
+          in: query
+          name: includeEdges
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marketId:
+                    type: string
+                  slug:
+                    type: string
+                  clusters:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clusterId:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        walletCount:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        totalValue:
+                          type: number
+                        yesValue:
+                          type: number
+                        noValue:
+                          type: number
+                        yesPct:
+                          type: number
+                        topWallets:
+                          type: array
+                          items:
+                            type: string
+                      required:
+                        - clusterId
+                        - walletCount
+                        - totalValue
+                        - yesValue
+                        - noValue
+                        - yesPct
+                        - topWallets
+                      additionalProperties: false
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        target:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        weight:
+                          type: number
+                      required:
+                        - source
+                        - target
+                        - weight
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      totalClusters:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      totalHolders:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      returnedClusters:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minClusterSize:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                    required:
+                      - totalClusters
+                      - totalHolders
+                      - returnedClusters
+                      - minClusterSize
+                    additionalProperties: false
+                required:
+                  - marketId
+                  - slug
+                  - clusters
+                  - meta
+                additionalProperties: false
+  /clusters/cross-market-activity:
+    get:
+      summary: Get cross-market cluster activity
+      tags:
+        - Clusters
+      description: Detects clusters simultaneously active across many markets — a coordinated manipulation signal.
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minClusterSize
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minMarkets
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minConcentration
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clusters:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clusterId:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        marketCount:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        avgMemberCount:
+                          type: number
+                        avgConcentration:
+                          type: number
+                        totalValue:
+                          type: number
+                        markets:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              marketId:
+                                type: string
+                              question:
+                                type: string
+                              slug:
+                                type: string
+                              memberCount:
+                                type: integer
+                                minimum: -9007199254740991
+                                maximum: 9007199254740991
+                              totalValue:
+                                type: number
+                              dominantSide:
+                                type: string
+                              concentration:
+                                type: number
+                            required:
+                              - marketId
+                              - question
+                              - slug
+                              - memberCount
+                              - totalValue
+                              - dominantSide
+                              - concentration
+                            additionalProperties: false
+                      required:
+                        - clusterId
+                        - marketCount
+                        - avgMemberCount
+                        - avgConcentration
+                        - totalValue
+                        - markets
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      minClusterSize:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minMarkets:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minConcentration:
+                        type: number
+                      limit:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      returnedCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                    required:
+                      - minClusterSize
+                      - minMarkets
+                      - minConcentration
+                      - limit
+                      - returnedCount
+                    additionalProperties: false
+                required:
+                  - clusters
+                  - meta
+                additionalProperties: false
+  /clusters/{id}:
+    get:
+      summary: Get cluster details
+      tags:
+        - Clusters
+      description: Returns metadata and optionally member wallets for a cluster.
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: boolean
+          in: query
+          name: includeMembers
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clusterId:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  memberCount:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  avgInternalSimilarity:
+                    type: number
+                  suspiciousnessScore:
+                    type: number
+                  behavioralProfile:
+                    type: object
+                    properties:
+                      topMarkets:
+                        type: array
+                        items:
+                          type: string
+                      dominantTags:
+                        type: array
+                        items:
+                          type: string
+                      totalVolume:
+                        type: number
+                      avgWinRate:
+                        type: number
+                    required:
+                      - topMarkets
+                      - dominantTags
+                      - totalVolume
+                      - avgWinRate
+                    additionalProperties: false
+                  representativeWallets:
+                    type: array
+                    items:
+                      type: string
+                  members:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - clusterId
+                  - memberCount
+                  - avgInternalSimilarity
+                  - suspiciousnessScore
+                  - behavioralProfile
+                  - representativeWallets
+                additionalProperties: false
+  /clusters/{id}/evidence:
+    get:
+      summary: Get cluster evidence
+      tags:
+        - Clusters
+      description: "Returns evidence for why wallets are clustered: shared markets, funding links, same-side betting, temporal
+        patterns, and internal similarity."
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clusterId:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  memberCount:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  sampledMembers:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  evidence:
+                    type: object
+                    properties:
+                      sharedMarkets:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            marketId:
+                              type: string
+                            question:
+                              nullable: true
+                              type: string
+                            slug:
+                              nullable: true
+                              type: string
+                            memberCount:
+                              type: integer
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            memberPct:
+                              type: number
+                            dominantSide:
+                              type: string
+                            yesCount:
+                              type: integer
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            noCount:
+                              type: integer
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                          required:
+                            - marketId
+                            - question
+                            - slug
+                            - memberCount
+                            - memberPct
+                            - dominantSide
+                            - yesCount
+                            - noCount
+                          additionalProperties: false
+                      fundingLinks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            source:
+                              type: string
+                            memberCount:
+                              type: integer
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            totalVolume:
+                              type: number
+                          required:
+                            - source
+                            - memberCount
+                            - totalVolume
+                          additionalProperties: false
+                      sameSideBetting:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            marketId:
+                              type: string
+                            question:
+                              nullable: true
+                              type: string
+                            side:
+                              type: string
+                            memberCount:
+                              type: integer
+                              minimum: -9007199254740991
+                              maximum: 9007199254740991
+                            memberPct:
+                              type: number
+                          required:
+                            - marketId
+                            - question
+                            - side
+                            - memberCount
+                            - memberPct
+                          additionalProperties: false
+                      temporalPatterns:
+                        type: object
+                        properties:
+                          avgFundingGapHours:
+                            nullable: true
+                            type: number
+                          minFundingGapHours:
+                            nullable: true
+                            type: number
+                          pairsWithin24h:
+                            type: integer
+                            minimum: -9007199254740991
+                            maximum: 9007199254740991
+                          pairsTotal:
+                            type: integer
+                            minimum: -9007199254740991
+                            maximum: 9007199254740991
+                        required:
+                          - avgFundingGapHours
+                          - minFundingGapHours
+                          - pairsWithin24h
+                          - pairsTotal
+                        additionalProperties: false
+                      internalSimilarity:
+                        type: object
+                        properties:
+                          pairs:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                walletA:
+                                  type: string
+                                walletB:
+                                  type: string
+                                jaccard:
+                                  type: number
+                                volumeWeightedJaccard:
+                                  type: number
+                                sharedMarkets:
+                                  type: integer
+                                  minimum: -9007199254740991
+                                  maximum: 9007199254740991
+                                sameSideMarkets:
+                                  type: integer
+                                  minimum: -9007199254740991
+                                  maximum: 9007199254740991
+                                oppositeSideMarkets:
+                                  type: integer
+                                  minimum: -9007199254740991
+                                  maximum: 9007199254740991
+                              required:
+                                - walletA
+                                - walletB
+                                - jaccard
+                                - volumeWeightedJaccard
+                                - sharedMarkets
+                                - sameSideMarkets
+                                - oppositeSideMarkets
+                              additionalProperties: false
+                          avgJaccard:
+                            type: number
+                          avgSameSide:
+                            type: number
+                        required:
+                          - pairs
+                          - avgJaccard
+                          - avgSameSide
+                        additionalProperties: false
+                    required:
+                      - sharedMarkets
+                      - fundingLinks
+                      - sameSideBetting
+                      - temporalPatterns
+                      - internalSimilarity
+                    additionalProperties: false
+                required:
+                  - clusterId
+                  - memberCount
+                  - evidence
+                additionalProperties: false
+  /markets/{slug}/clusters/explore:
+    get:
+      summary: Explore market clusters with tunable parameters
+      tags:
+        - Clusters
+      description: Computes clusters on-the-fly for a market. Supports presets (conservative/balanced/aggressive) or
+        individual parameter tuning. Rate limited — use pre-computed /markets/:slug/clusters for high-frequency access.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - conservative
+              - balanced
+              - aggressive
+          in: query
+          name: preset
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minJaccard
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minSharedMarkets
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: boolean
+          in: query
+          name: sameSide
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: resolution
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minClusterSize
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: boolean
+          in: query
+          name: useIHF
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marketId:
+                    type: string
+                  slug:
+                    type: string
+                  clusters:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clusterId:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        walletCount:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        totalValue:
+                          type: number
+                        yesValue:
+                          type: number
+                        noValue:
+                          type: number
+                        yesPct:
+                          type: number
+                        topWallets:
+                          type: array
+                          items:
+                            type: string
+                        avgJaccard:
+                          type: number
+                        avgSameSidePct:
+                          type: number
+                      required:
+                        - clusterId
+                        - walletCount
+                        - totalValue
+                        - yesValue
+                        - noValue
+                        - yesPct
+                        - topWallets
+                        - avgJaccard
+                        - avgSameSidePct
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      params:
+                        type: object
+                        properties:
+                          minJaccard:
+                            type: number
+                          minSharedMarkets:
+                            type: integer
+                            minimum: -9007199254740991
+                            maximum: 9007199254740991
+                          sameSide:
+                            type: boolean
+                          resolution:
+                            type: number
+                          minClusterSize:
+                            type: integer
+                            minimum: -9007199254740991
+                            maximum: 9007199254740991
+                          useIHF:
+                            type: boolean
+                          preset:
+                            nullable: true
+                            type: string
+                        required:
+                          - minJaccard
+                          - minSharedMarkets
+                          - sameSide
+                          - resolution
+                          - minClusterSize
+                          - useIHF
+                          - preset
+                        additionalProperties: false
+                      totalHolders:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      totalClusters:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      clusteredHolders:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      edgeCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      computedInMs:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                    required:
+                      - params
+                      - totalHolders
+                      - totalClusters
+                      - clusteredHolders
+                      - edgeCount
+                      - computedInMs
+                    additionalProperties: false
+                required:
+                  - marketId
+                  - slug
+                  - clusters
+                  - meta
+                additionalProperties: false
+  /funding/wallet/{address}:
+    get:
+      summary: Get funding sources for a wallet
+      tags:
+        - Funding
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wallet:
+                    type: string
+                  funding_sources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        polymarket_wallet:
+                          type: string
+                        funding_source:
+                          type: string
+                        first_funding_at:
+                          type: string
+                        last_funding_at:
+                          type: string
+                        total_deposited:
+                          type: string
+                        total_withdrawn:
+                          type: string
+                        deposit_count:
+                          type: number
+                        withdrawal_count:
+                          type: number
+                        net_flow:
+                          type: string
+                        updated_at:
+                          type: string
+                      required:
+                        - polymarket_wallet
+                        - funding_source
+                        - first_funding_at
+                        - last_funding_at
+                        - total_deposited
+                        - total_withdrawn
+                        - deposit_count
+                        - withdrawal_count
+                        - net_flow
+                        - updated_at
+                      additionalProperties: false
+                  total_deposited:
+                    type: string
+                  total_withdrawn:
+                    type: string
+                  net_flow:
+                    type: string
+                  unique_sources:
+                    type: number
+                required:
+                  - wallet
+                  - funding_sources
+                  - total_deposited
+                  - total_withdrawn
+                  - net_flow
+                  - unique_sources
+                additionalProperties: false
+  /funding/source/{address}:
+    get:
+      summary: Get wallets funded by a source address
+      tags:
+        - Funding
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                  funded_wallets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        polymarket_wallet:
+                          type: string
+                        funding_source:
+                          type: string
+                        first_funding_at:
+                          type: string
+                        last_funding_at:
+                          type: string
+                        total_deposited:
+                          type: string
+                        total_withdrawn:
+                          type: string
+                        deposit_count:
+                          type: number
+                        withdrawal_count:
+                          type: number
+                        net_flow:
+                          type: string
+                        updated_at:
+                          type: string
+                      required:
+                        - polymarket_wallet
+                        - funding_source
+                        - first_funding_at
+                        - last_funding_at
+                        - total_deposited
+                        - total_withdrawn
+                        - deposit_count
+                        - withdrawal_count
+                        - net_flow
+                        - updated_at
+                      additionalProperties: false
+                  total_deposited:
+                    type: string
+                  total_withdrawn:
+                    type: string
+                  net_flow:
+                    type: string
+                  unique_wallets:
+                    type: number
+                required:
+                  - source
+                  - funded_wallets
+                  - total_deposited
+                  - total_withdrawn
+                  - net_flow
+                  - unique_wallets
+                additionalProperties: false
+  /funding/transfers:
+    get:
+      summary: Get recent USDC transfers
+      tags:
+        - Funding
+      parameters:
+        - schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            default: all
+            type: string
+            enum:
+              - external_deposit
+              - external_withdrawal
+              - all
+          in: query
+          name: type
+          required: false
+        - schema:
+            type: string
+          in: query
+          name: wallet
+          required: false
+        - schema: {}
+          in: query
+          name: since
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tx_hash:
+                          type: string
+                        log_index:
+                          type: number
+                        block_number:
+                          type: number
+                        block_timestamp:
+                          type: string
+                        from_address:
+                          type: string
+                        to_address:
+                          type: string
+                        amount:
+                          type: string
+                        transfer_type:
+                          type: string
+                          enum:
+                            - external_deposit
+                            - external_withdrawal
+                        external_address:
+                          type: string
+                        polymarket_wallet:
+                          type: string
+                      required:
+                        - tx_hash
+                        - log_index
+                        - block_number
+                        - block_timestamp
+                        - from_address
+                        - to_address
+                        - amount
+                        - transfer_type
+                        - external_address
+                        - polymarket_wallet
+                      additionalProperties: false
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      hasMore:
+                        type: boolean
+                    required:
+                      - limit
+                      - offset
+                      - hasMore
+                    additionalProperties: false
+                required:
+                  - transfers
+                  - pagination
+                additionalProperties: false
+  /funding/stats:
+    get:
+      summary: Get overall funding statistics
+      tags:
+        - Funding
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_deposits:
+                    type: string
+                  total_withdrawals:
+                    type: string
+                  net_flow:
+                    type: string
+                  deposit_count:
+                    type: number
+                  withdrawal_count:
+                    type: number
+                  unique_wallets:
+                    type: number
+                  unique_sources:
+                    type: number
+                  latest_block:
+                    type: number
+                required:
+                  - total_deposits
+                  - total_withdrawals
+                  - net_flow
+                  - deposit_count
+                  - withdrawal_count
+                  - unique_wallets
+                  - unique_sources
+                  - latest_block
+                additionalProperties: false
+  /funding/label/{address}:
+    get:
+      summary: Get label for an address
+      tags:
+        - Funding
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  label:
+                    nullable: true
+                    type: string
+                  entity_type:
+                    type: string
+                  fetched_at:
+                    nullable: true
+                    type: string
+                required:
+                  - address
+                  - label
+                  - entity_type
+                  - fetched_at
+                additionalProperties: false
+  /funding/trace/{address}:
+    get:
+      summary: Multi-hop fund tracing
+      tags:
+        - Funding
+      parameters:
+        - schema:
+            default: 2
+            type: integer
+            minimum: 1
+            maximum: 5
+          in: query
+          name: depth
+          required: false
+        - schema:
+            default: in
+            type: string
+            enum:
+              - in
+              - out
+              - both
+          in: query
+          name: direction
+          required: false
+        - schema:
+            type: number
+          in: query
+          name: min_amount
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: address
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                  label:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - name
+                      - type
+                    additionalProperties: false
+                  depth:
+                    type: number
+                  total_amount:
+                    type: string
+                  tx_count:
+                    type: number
+                  funding_sources:
+                    type: array
+                    items:
+                      type: object
+                required:
+                  - address
+                  - depth
+                additionalProperties: false
+  /funding/shared-source:
+    get:
+      summary: Find wallets sharing a funding source
+      tags:
+        - Funding
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: query
+          name: source
+          required: true
+        - schema:
+            type: number
+          in: query
+          name: min_amount
+          required: false
+        - schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                  funded_wallets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        wallet:
+                          type: string
+                        total_deposited:
+                          type: string
+                        first_deposit_at:
+                          type: string
+                        last_deposit_at:
+                          type: string
+                      required:
+                        - wallet
+                        - total_deposited
+                        - first_deposit_at
+                        - last_deposit_at
+                      additionalProperties: false
+                  label:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - name
+                      - type
+                    additionalProperties: false
+                required:
+                  - source
+                  - funded_wallets
+                additionalProperties: false
+  /markets/{slug}/intelligence:
+    get:
+      summary: Get AI market intelligence summary
+      tags:
+        - Intelligence
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      market_slug:
+                        type: string
+                      summary:
+                        type: string
+                      sentiment:
+                        type: string
+                      activity_level:
+                        type: string
+                      key_signals:
+                        type: array
+                        items:
+                          type: string
+                      risk_factors:
+                        type: array
+                        items:
+                          type: string
+                      confidence:
+                        type: number
+                      model:
+                        type: string
+                      generated_at:
+                        type: string
+                    required:
+                      - market_slug
+                      - summary
+                      - sentiment
+                      - activity_level
+                      - key_signals
+                      - risk_factors
+                      - confidence
+                      - model
+                      - generated_at
+                    additionalProperties: false
+                required:
+                  - data
+                additionalProperties: false
+  /markets/search:
+    get:
+      summary: Semantic market search
+      tags:
+        - Intelligence
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+          in: query
+          name: q
+          required: true
+        - schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 50
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        market_slug:
+                          type: string
+                        question:
+                          type: string
+                        similarity:
+                          type: number
+                      required:
+                        - market_slug
+                        - question
+                        - similarity
+                      additionalProperties: false
+                  query:
+                    type: string
+                  count:
+                    type: number
+                required:
+                  - data
+                  - query
+                  - count
+                additionalProperties: false
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  traceId:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+  /markets/anomalies:
+    get:
+      summary: Get market anomalies
+      tags:
+        - Intelligence
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            enum:
+              - volume_spike
+              - holder_shift
+              - price_divergence
+          in: query
+          name: anomaly_type
+          required: false
+        - schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+          in: query
+          name: severity
+          required: false
+        - schema:
+            default: detected_at
+            type: string
+            enum:
+              - detected_at
+              - severity
+          in: query
+          name: sort_by
+          required: false
+        - schema:
+            default: DESC
+            type: string
+            enum:
+              - ASC
+              - DESC
+          in: query
+          name: sort_order
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        anomaly_id:
+                          type: string
+                        market_slug:
+                          type: string
+                        anomaly_type:
+                          type: string
+                        severity:
+                          type: string
+                        description:
+                          type: string
+                        data_context:
+                          type: string
+                        detected_at:
+                          type: string
+                      required:
+                        - anomaly_id
+                        - market_slug
+                        - anomaly_type
+                        - severity
+                        - description
+                        - data_context
+                        - detected_at
+                      additionalProperties: false
+                  count:
+                    type: number
+                  offset:
+                    type: number
+                required:
+                  - data
+                  - count
+                  - offset
+                additionalProperties: false
+  /markets/{slug}/correlated:
+    get:
+      summary: Get markets correlated with a given market
+      tags:
+        - Correlations
+      description: Returns markets that move together with the specified market based on Pearson price correlation over
+        rolling windows.
+      parameters:
+        - schema:
+            default: 7d
+            type: string
+            enum:
+              - 1d
+              - 7d
+              - 30d
+          in: query
+          name: window
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: minCorrelation
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  market:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      slug:
+                        type: string
+                      title:
+                        type: string
+                    required:
+                      - id
+                      - slug
+                      - title
+                    additionalProperties: false
+                  window:
+                    type: string
+                    enum:
+                      - 1d
+                      - 7d
+                      - 30d
+                  correlatedMarkets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        slug:
+                          type: string
+                        title:
+                          type: string
+                        correlation:
+                          type: number
+                        holderOverlapScore:
+                          type: number
+                        compositeScore:
+                          type: number
+                        sampleCount:
+                          type: integer
+                          minimum: -9007199254740991
+                          maximum: 9007199254740991
+                        updatedAt:
+                          type: string
+                      required:
+                        - id
+                        - slug
+                        - title
+                        - correlation
+                        - holderOverlapScore
+                        - compositeScore
+                        - sampleCount
+                        - updatedAt
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      window:
+                        type: string
+                        enum:
+                          - 1d
+                          - 7d
+                          - 30d
+                      limit:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      minCorrelation:
+                        type: number
+                      returnedCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      traceId:
+                        type: string
+                    required:
+                      - window
+                      - limit
+                      - minCorrelation
+                      - returnedCount
+                      - traceId
+                    additionalProperties: false
+                required:
+                  - market
+                  - window
+                  - correlatedMarkets
+                  - meta
+                additionalProperties: false
+  /correlations/matrix:
+    get:
+      summary: Get correlation matrix for top markets
+      tags:
+        - Correlations
+      description: Returns a pairwise correlation matrix for the top N most-correlated markets. Suitable for heatmap visualization.
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: number
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 7d
+            type: string
+            enum:
+              - 1d
+              - 7d
+              - 30d
+          in: query
+          name: window
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  window:
+                    type: string
+                    enum:
+                      - 1d
+                      - 7d
+                      - 30d
+                  markets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        slug:
+                          type: string
+                        title:
+                          type: string
+                      required:
+                        - id
+                        - slug
+                        - title
+                      additionalProperties: false
+                  pairs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        marketA:
+                          type: string
+                        marketB:
+                          type: string
+                        correlation:
+                          type: number
+                      required:
+                        - marketA
+                        - marketB
+                        - correlation
+                      additionalProperties: false
+                  meta:
+                    type: object
+                    properties:
+                      window:
+                        type: string
+                        enum:
+                          - 1d
+                          - 7d
+                          - 30d
+                      marketCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      pairCount:
+                        type: integer
+                        minimum: -9007199254740991
+                        maximum: 9007199254740991
+                      traceId:
+                        type: string
+                    required:
+                      - window
+                      - marketCount
+                      - pairCount
+                      - traceId
+                    additionalProperties: false
+                required:
+                  - window
+                  - markets
+                  - pairs
+                  - meta
+                additionalProperties: false
+  /cohorts:
+    get:
+      summary: Get all cohorts with global stats
+      tags:
+        - Cohorts
+      description: Returns all 11 trader cohorts (6 PnL + 5 size) with platform-wide aggregate stats including trader count,
+        portfolio value, notional exposure, and sentiment.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pnl:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cohortType:
+                          type: string
+                        cohortTier:
+                          type: string
+                        label:
+                          type: string
+                        description:
+                          type: string
+                        traderCount:
+                          type: number
+                        totalPortfolioUsd:
+                          type: number
+                        totalRealizedPnlUsd:
+                          type: number
+                        yesNotionalUsd:
+                          type: number
+                        noNotionalUsd:
+                          type: number
+                        yesPct:
+                          type: number
+                        sentiment:
+                          type: string
+                        tradersInProfit:
+                          type: number
+                        tradersInLoss:
+                          type: number
+                        avgWinRate:
+                          type: number
+                        avgPortfolioUsd:
+                          type: number
+                      required:
+                        - cohortType
+                        - cohortTier
+                        - label
+                        - description
+                        - traderCount
+                        - totalPortfolioUsd
+                        - totalRealizedPnlUsd
+                        - yesNotionalUsd
+                        - noNotionalUsd
+                        - yesPct
+                        - sentiment
+                        - tradersInProfit
+                        - tradersInLoss
+                        - avgWinRate
+                        - avgPortfolioUsd
+                      additionalProperties: {}
+                  size:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cohortType:
+                          type: string
+                        cohortTier:
+                          type: string
+                        label:
+                          type: string
+                        description:
+                          type: string
+                        traderCount:
+                          type: number
+                        totalPortfolioUsd:
+                          type: number
+                        totalRealizedPnlUsd:
+                          type: number
+                        yesNotionalUsd:
+                          type: number
+                        noNotionalUsd:
+                          type: number
+                        yesPct:
+                          type: number
+                        sentiment:
+                          type: string
+                        tradersInProfit:
+                          type: number
+                        tradersInLoss:
+                          type: number
+                        avgWinRate:
+                          type: number
+                        avgPortfolioUsd:
+                          type: number
+                      required:
+                        - cohortType
+                        - cohortTier
+                        - label
+                        - description
+                        - traderCount
+                        - totalPortfolioUsd
+                        - totalRealizedPnlUsd
+                        - yesNotionalUsd
+                        - noNotionalUsd
+                        - yesPct
+                        - sentiment
+                        - tradersInProfit
+                        - tradersInLoss
+                        - avgWinRate
+                        - avgPortfolioUsd
+                      additionalProperties: {}
+                  updatedAt:
+                    type: string
+                required:
+                  - pnl
+                  - size
+                  - updatedAt
+                additionalProperties: {}
+  /cohorts/{type}/{tier}:
+    get:
+      summary: Get single cohort detail
+      tags:
+        - Cohorts
+      description: Returns detailed stats for a specific cohort tier.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - pnl
+              - size
+          in: path
+          name: type
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: tier
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cohortType:
+                    type: string
+                  cohortTier:
+                    type: string
+                  label:
+                    type: string
+                  description:
+                    type: string
+                  traderCount:
+                    type: number
+                  totalPortfolioUsd:
+                    type: number
+                  totalRealizedPnlUsd:
+                    type: number
+                  yesNotionalUsd:
+                    type: number
+                  noNotionalUsd:
+                    type: number
+                  yesPct:
+                    type: number
+                  sentiment:
+                    type: string
+                  tradersInProfit:
+                    type: number
+                  tradersInLoss:
+                    type: number
+                  avgWinRate:
+                    type: number
+                  avgPortfolioUsd:
+                    type: number
+                required:
+                  - cohortType
+                  - cohortTier
+                  - label
+                  - description
+                  - traderCount
+                  - totalPortfolioUsd
+                  - totalRealizedPnlUsd
+                  - yesNotionalUsd
+                  - noNotionalUsd
+                  - yesPct
+                  - sentiment
+                  - tradersInProfit
+                  - tradersInLoss
+                  - avgWinRate
+                  - avgPortfolioUsd
+                additionalProperties: {}
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+  /cohorts/{type}/{tier}/markets:
+    get:
+      summary: Get markets breakdown for a cohort
+      tags:
+        - Cohorts
+      description: Returns per-market stats for all markets where traders in this cohort have positions, sorted by total
+        notional descending.
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            enum:
+              - pnl
+              - size
+          in: path
+          name: type
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: tier
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cohort:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      tier:
+                        type: string
+                    required:
+                      - type
+                      - tier
+                    additionalProperties: false
+                  markets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        marketId:
+                          type: string
+                        slug:
+                          nullable: true
+                          type: string
+                        question:
+                          nullable: true
+                          type: string
+                        eventTitle:
+                          nullable: true
+                          type: string
+                        iconUrl:
+                          nullable: true
+                          type: string
+                        yesTraders:
+                          type: number
+                        noTraders:
+                          type: number
+                        yesNotionalUsd:
+                          type: number
+                        noNotionalUsd:
+                          type: number
+                        totalNotionalUsd:
+                          type: number
+                        totalUnrealizedPnlUsd:
+                          type: number
+                        tradersInProfit:
+                          type: number
+                        tradersInLoss:
+                          type: number
+                        yesPct:
+                          type: number
+                        sentiment:
+                          type: string
+                      required:
+                        - marketId
+                        - slug
+                        - question
+                        - eventTitle
+                        - iconUrl
+                        - yesTraders
+                        - noTraders
+                        - yesNotionalUsd
+                        - noNotionalUsd
+                        - totalNotionalUsd
+                        - totalUnrealizedPnlUsd
+                        - tradersInProfit
+                        - tradersInLoss
+                        - yesPct
+                        - sentiment
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      total:
+                        type: number
+                      nextOffset:
+                        nullable: true
+                        type: number
+                    required:
+                      - limit
+                      - offset
+                      - total
+                      - nextOffset
+                    additionalProperties: false
+                  updatedAt:
+                    type: string
+                required:
+                  - cohort
+                  - markets
+                  - pagination
+                  - updatedAt
+                additionalProperties: {}
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+  /cohorts/{type}/{tier}/wallets:
+    get:
+      summary: Get wallets in a cohort
+      tags:
+        - Cohorts
+      description: Returns wallets belonging to this cohort, enriched with profiles and cross-referenced cohort assignments.
+      parameters:
+        - schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+        - schema:
+            default: portfolio
+            type: string
+            enum:
+              - portfolio
+              - pnl
+              - win_rate
+          in: query
+          name: sortBy
+          required: false
+        - schema:
+            default: DESC
+            type: string
+            enum:
+              - ASC
+              - DESC
+          in: query
+          name: sortOrder
+          required: false
+        - schema:
+            type: string
+            enum:
+              - pnl
+              - size
+          in: path
+          name: type
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: tier
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cohort:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      tier:
+                        type: string
+                    required:
+                      - type
+                      - tier
+                    additionalProperties: false
+                  wallets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        address:
+                          type: string
+                        profile:
+                          nullable: true
+                        portfolioValueUsd:
+                          type: number
+                        totalPnlUsd:
+                          type: number
+                        realizedPnlUsd:
+                          type: number
+                        activePositions:
+                          type: number
+                        winRate:
+                          type: number
+                        pnlCohort:
+                          type: string
+                        sizeCohort:
+                          type: string
+                      required:
+                        - address
+                        - profile
+                        - portfolioValueUsd
+                        - totalPnlUsd
+                        - realizedPnlUsd
+                        - activePositions
+                        - winRate
+                        - pnlCohort
+                        - sizeCohort
+                      additionalProperties: {}
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: number
+                      offset:
+                        type: number
+                      total:
+                        type: number
+                      nextOffset:
+                        nullable: true
+                        type: number
+                    required:
+                      - limit
+                      - offset
+                      - total
+                      - nextOffset
+                    additionalProperties: false
+                  updatedAt:
+                    type: string
+                required:
+                  - cohort
+                  - wallets
+                  - pagination
+                  - updatedAt
+                additionalProperties: {}
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+  /cohorts/{type}/{tier}/positioning:
+    get:
+      summary: Get cohort positioning time-series
+      tags:
+        - Cohorts
+      description: Returns historical YES positioning percentage over time for the specified cohort and time window.
+      parameters:
+        - schema:
+            default: 7d
+            type: string
+            enum:
+              - 24h
+              - 7d
+              - 30d
+          in: query
+          name: window
+          required: false
+        - schema:
+            type: string
+            enum:
+              - pnl
+              - size
+          in: path
+          name: type
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: tier
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cohort:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      tier:
+                        type: string
+                    required:
+                      - type
+                      - tier
+                    additionalProperties: false
+                  window:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp:
+                          type: string
+                        yesPct:
+                          type: number
+                        totalNotionalUsd:
+                          type: number
+                        traderCount:
+                          type: number
+                      required:
+                        - timestamp
+                        - yesPct
+                        - totalNotionalUsd
+                        - traderCount
+                      additionalProperties: false
+                required:
+                  - cohort
+                  - window
+                  - data
+                additionalProperties: {}
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+  /markets/{slug}/cohorts:
+    get:
+      summary: Get cohort breakdown for a market
+      tags:
+        - Cohorts
+      description: Returns PnL and size cohort stats for a specific market, showing how different trader tiers are positioned.
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: slug
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  market:
+                    type: object
+                    properties:
+                      marketId:
+                        type: string
+                      slug:
+                        type: string
+                      question:
+                        nullable: true
+                        type: string
+                      eventTitle:
+                        nullable: true
+                        type: string
+                      iconUrl:
+                        nullable: true
+                        type: string
+                    required:
+                      - marketId
+                      - slug
+                      - question
+                      - eventTitle
+                      - iconUrl
+                    additionalProperties: false
+                  pnl:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cohortTier:
+                          type: string
+                        label:
+                          type: string
+                        yesTraders:
+                          type: number
+                        noTraders:
+                          type: number
+                        yesNotionalUsd:
+                          type: number
+                        noNotionalUsd:
+                          type: number
+                        totalNotionalUsd:
+                          type: number
+                        totalUnrealizedPnlUsd:
+                          type: number
+                        tradersInProfit:
+                          type: number
+                        tradersInLoss:
+                          type: number
+                        yesPct:
+                          type: number
+                        sentiment:
+                          type: string
+                      required:
+                        - cohortTier
+                        - label
+                        - yesTraders
+                        - noTraders
+                        - yesNotionalUsd
+                        - noNotionalUsd
+                        - totalNotionalUsd
+                        - totalUnrealizedPnlUsd
+                        - tradersInProfit
+                        - tradersInLoss
+                        - yesPct
+                        - sentiment
+                      additionalProperties: {}
+                  size:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cohortTier:
+                          type: string
+                        label:
+                          type: string
+                        yesTraders:
+                          type: number
+                        noTraders:
+                          type: number
+                        yesNotionalUsd:
+                          type: number
+                        noNotionalUsd:
+                          type: number
+                        totalNotionalUsd:
+                          type: number
+                        totalUnrealizedPnlUsd:
+                          type: number
+                        tradersInProfit:
+                          type: number
+                        tradersInLoss:
+                          type: number
+                        yesPct:
+                          type: number
+                        sentiment:
+                          type: string
+                      required:
+                        - cohortTier
+                        - label
+                        - yesTraders
+                        - noTraders
+                        - yesNotionalUsd
+                        - noNotionalUsd
+                        - totalNotionalUsd
+                        - totalUnrealizedPnlUsd
+                        - tradersInProfit
+                        - tradersInLoss
+                        - yesPct
+                        - sentiment
+                      additionalProperties: {}
+                  updatedAt:
+                    type: string
+                required:
+                  - market
+                  - pnl
+                  - size
+                  - updatedAt
+                additionalProperties: {}
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                required:
+                  - error
+                additionalProperties: false
+components:
+  schemas:
+    schema0Input:
+      type: object
+      description: >-
+        Compound filter group. Combine conditions with AND/OR logic; groups may
+        nest to express complex queries (e.g. "volume delta > X AND (whales > Y
+        OR smart money > Z)").
+      properties:
+        logic:
+          type: string
+          enum: [and, or]
+          default: and
+          description: How the conditions in this group combine.
+        conditions:
+          type: array
+          description: Filter conditions, or nested filter groups.
+          items:
+            oneOf:
+              - type: object
+                description: A single filter condition on a metric.
+                properties:
+                  metric:
+                    type: string
+                    description: Metric to filter on (e.g. volume, holders_total).
+                  window:
+                    type: string
+                    enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
+                    description: Time window for a delta comparison (omit for current value).
+                  compare:
+                    type: string
+                    enum: [delta_abs, delta_pct]
+                    description: Absolute or percentage change (omit for current value).
+                  operator:
+                    type: string
+                    enum: [gt, gte, lt, lte, eq]
+                  value:
+                    type: number
+                required: [metric, operator, value]
+              - $ref: "#/components/schemas/schema0Input"

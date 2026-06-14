@@ -1,0 +1,30 @@
+---
+title: 'Event Details'
+openapi: openapi-api.yaml GET /events/{slug}
+description: 'Get a single event with full metrics, deltas, and nested markets'
+---
+
+Returns detailed information for a single event, including all discovery metrics, delta values across all timeframes, and a list of nested markets belonging to the event.
+
+### Key Fields
+
+- **Metadata** — title, description, category, subcategory, image, dates
+- **Metrics** — volume, liquidity, market_count, holder breakdowns (total, yes, no, whale, smart money, insider)
+- **Deltas** — pre-computed changes across all 8 timeframes (5m through 30d) for every metric
+- **Markets** — array of child markets with their own prices, volume, and metadata
+
+### Lookup
+
+The `:slug` parameter accepts either:
+- An **event slug** (e.g., `us-presidential-election-2028`)
+- An **event ID** (e.g., `12345`)
+
+### Example
+
+```bash
+curl 'https://api.klarity.trade/events/us-presidential-election-2028'
+```
+
+<Note>
+  This endpoint LEFT JOINs the event serving table. Newly created events that haven't been through a serving refresh cycle yet will return metrics as null/zero. The `market_count` comes from `events_latest` (canonical source) so it's always accurate.
+</Note>

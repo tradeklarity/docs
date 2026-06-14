@@ -1,0 +1,40 @@
+---
+title: 'Get HIP-4 Outcome Trades'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/outcomes/{outcomeId}/trades
+description: Recent CLOB trades for a HIP-4 outcome
+---
+
+Returns recent trade fills on the HIP-4 CLOB for a given outcome, ordered
+newest-first by `fillTs`. Each row reports both maker and taker addresses and
+the aggressor side (`B` = bought, `A` = sold).
+
+## Path Parameters
+
+<ParamField path="outcomeId" type="integer" required>
+  HIP-4 outcome ID (numeric)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="50">
+  Max trades to return (1-200)
+</ParamField>
+
+<ParamField query="since" type="string">
+  ISO-8601 cutoff — only return trades with `fillTs >= since`
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/outcomes/123/trades?limit=50&since=2026-04-27T00:00:00Z"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/outcomes/123/trades?limit=50',
+);
+const { data, meta } = await res.json();
+```
+</CodeGroup>

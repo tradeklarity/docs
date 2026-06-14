@@ -1,0 +1,230 @@
+---
+title: 'Signal Stream'
+openapi: openapi-stream.yaml GET /top-trader-signals/stream
+description: Real-time SSE stream of trading signals from top-performing traders
+---
+
+## Overview
+
+Streams real-time trading signals from tracked top traders via Server-Sent Events. Each signal is an enriched trade event containing the full trade context plus the trader's leaderboard stats. Supports filtering by Sharpe ratio, win rate, PnL, and trader tier.
+
+<Info>
+Legacy path `/copy-trading/stream` works identically and is maintained for backwards compatibility.
+</Info>
+
+## Query Parameters
+
+<ParamField query="minSharpe" type="number">
+  Minimum Sharpe ratio. Only signals from traders with `sharpeRatio >= minSharpe` are sent.
+</ParamField>
+
+<ParamField query="minWinRate" type="number">
+  Minimum win rate (0-1). Only signals from traders with `winRate >= minWinRate` are sent.
+</ParamField>
+
+<ParamField query="minPnl" type="number">
+  Minimum total PnL in USD. Only signals from traders with `totalPnl >= minPnl` are sent.
+</ParamField>
+
+<ParamField query="traderTier" type="string" default="all">
+  Filter by trader tier: `elite` (top 10), `top` (top 100), or `all` (no filter).
+</ParamField>
+
+<ParamField query="since" type="string">
+  ISO 8601 timestamp for historical backfill. If provided, the stream replays persisted signals from ClickHouse before switching to live streaming.
+</ParamField>
+
+## SSE Events
+
+### `system` — Connection confirmation
+
+Sent immediately on connect. Contains the filter that was applied.
+
+```json
+{
+  "type": "connected",
+  "filter": { "minSharpe": 1.5, "traderTier": "elite" }
+}
+```
+
+### `backfill` — Historical replay
+
+Sent once after connect if `since` was provided. Contains an array of signal objects.
+
+### `signal` — Live trading signal
+
+Each signal is a JSON object with trade details and trader leaderboard context:
+
+<ResponseField name="id" type="string">
+  Unique trade/signal ID
+</ResponseField>
+
+<ResponseField name="wallet" type="string">
+  Trader wallet address (lowercase hex)
+</ResponseField>
+
+<ResponseField name="marketSlug" type="string|null">
+  Market slug where the trade occurred
+</ResponseField>
+
+<ResponseField name="marketTitle" type="string|null">
+  Human-readable market title
+</ResponseField>
+
+<ResponseField name="outcome" type="string|null">
+  Outcome label (e.g., "Yes", "No")
+</ResponseField>
+
+<ResponseField name="marketImage" type="string|null">
+  Market image URL
+</ResponseField>
+
+<ResponseField name="side" type="string|null">
+  Trade direction: `BUY` or `SELL`
+</ResponseField>
+
+<ResponseField name="size" type="number">
+  Position size in shares
+</ResponseField>
+
+<ResponseField name="price" type="number">
+  Execution price per share (0-1 range)
+</ResponseField>
+
+<ResponseField name="notionalUsd" type="number">
+  Trade notional value in USD
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+  ISO 8601 timestamp of the trade
+</ResponseField>
+
+<ResponseField name="txHash" type="string|null">
+  On-chain transaction hash
+</ResponseField>
+
+<ResponseField name="tags" type="string[]">
+  Trade classification tags
+</ResponseField>
+
+<ResponseField name="portfolioValueUsd" type="number">
+  Trader's portfolio value in USD
+</ResponseField>
+
+<ResponseField name="winRate" type="number|null">
+  Trader's win rate at time of signal
+</ResponseField>
+
+<ResponseField name="totalRealizedPnlUsd" type="number">
+  Total realized PnL in USD
+</ResponseField>
+
+<ResponseField name="marketsTraded" type="integer">
+  Number of markets the trader has participated in
+</ResponseField>
+
+<ResponseField name="isWhale" type="boolean">
+  Whether the trade was whale-classified
+</ResponseField>
+
+<ResponseField name="isSmartMoney" type="boolean">
+  Whether the trader is classified as smart money
+</ResponseField>
+
+<ResponseField name="isInsider" type="boolean">
+  Whether the trade matched insider patterns
+</ResponseField>
+
+<ResponseField name="ageHours" type="number|null">
+  Wallet age in hours
+</ResponseField>
+
+<ResponseField name="traderName" type="string|null">
+  Known trader name (if resolved)
+</ResponseField>
+
+<ResponseField name="profileImage" type="string|null">
+  Trader profile image URL
+</ResponseField>
+
+<ResponseField name="rank" type="integer">
+  Leaderboard rank (1 = highest smart score)
+</ResponseField>
+
+<ResponseField name="smartScore" type="number">
+  Composite smart money score
+</ResponseField>
+
+<ResponseField name="sharpeRatio" type="number">
+  Sharpe ratio
+</ResponseField>
+
+<ResponseField name="totalPnl" type="number">
+  Total PnL in USD
+</ResponseField>
+
+<ResponseField name="positionCount" type="integer">
+  Number of positions traded
+</ResponseField>
+
+<ResponseField name="maxDrawdown" type="number">
+  Maximum drawdown (0-1)
+</ResponseField>
+
+<ResponseField name="currentStreak" type="integer">
+  Current win/loss streak
+</ResponseField>
+
+<ResponseField name="confidence" type="string">
+  Signal confidence: `high` (top 10 traders) or `medium` (top 100)
+</ResponseField>
+
+<ResponseField name="traderTier" type="string">
+  Trader tier: `elite` (top 10) or `top` (top 100)
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/top-trader-signals/stream?minSharpe=1.5&traderTier=elite&since=2026-03-20T00:00:00Z" \
+  --header "Accept: text/event-stream"
+```
+
+```javascript JavaScript
+const eventSource = new EventSource(
+  'https://ws.klarity.trade/stream/top-trader-signals/stream?minSharpe=1.5&traderTier=elite'
+);
+
+eventSource.addEventListener('signal', (e) => {
+  const signal = JSON.parse(e.data);
+  console.log(`[${signal.traderTier}] ${signal.wallet} ${signal.side} on ${signal.marketSlug} — $${signal.notionalUsd}`);
+});
+
+eventSource.addEventListener('backfill', (e) => {
+  const signals = JSON.parse(e.data);
+  console.log(`Received ${signals.length} historical signals`);
+});
+
+eventSource.addEventListener('system', (e) => {
+  const msg = JSON.parse(e.data);
+  console.log('Connected with filter:', msg.filter);
+});
+
+eventSource.onerror = (error) => {
+  console.error('Stream error:', error);
+  eventSource.close();
+};
+```
+</RequestExample>
+
+## Connection Limits
+
+- **Per-IP limit**: 10 concurrent SSE connections
+- **Rate limit**: 429 Too Many Requests if exceeded
+- **Heartbeat**: `: heartbeat` comment sent every 15 seconds
+- **Reconnection**: Exponential backoff recommended (start at 1s, max 60s)
+
+## Related Endpoints
+
+- [`GET /top-trader-signals/traders`](/api-reference/copy-trading/get-traders) — List current top traders
+- [`GET /top-trader-signals/traders/:address`](/api-reference/copy-trading/get-trader) — Get trader details and signal history
+- [`GET /top-trader-signals/stats`](/api-reference/copy-trading/stats) — System statistics

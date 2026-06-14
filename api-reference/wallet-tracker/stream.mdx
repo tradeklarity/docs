@@ -1,0 +1,100 @@
+---
+title: Wallet Tracker Stream
+openapi: openapi-stream.yaml GET /wallets/stream
+description: SSE stream of trades for user-subscribed wallets (ticket auth)
+---
+
+Requires a single-use ticket from `POST /wallets/stream-ticket`. On connect, recent trades are sent as individual `event: trade` messages (backfill), then live trades follow.
+
+## Query Parameters
+
+<ParamField query="ticket" type="string" required>
+  Single-use JWT ticket from `POST /wallets/stream-ticket` (30s TTL).
+</ParamField>
+
+## SSE Events
+
+### `event: system`
+
+```json
+{ "type": "connected", "wallets": ["0x742d35cc6634c0532925a3b844bc9e7595f42cbe"] }
+```
+
+Also emits `subscribed`, `unsubscribed`, and `error` messages.
+
+### `event: trade` (live and backfill)
+
+Same `TradeAlertEvent` schema as all other streams.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-20T14:30:00.000Z",
+  "wallet": "0x742d35cc6634c0532925a3b844bc9e7595f42cbe",
+  "notionalUsd": 375,
+  "size": 500,
+  "price": 0.75,
+  "side": "BUY",
+  "outcome": "Yes",
+  "marketSlug": "will-trump-win-2024",
+  "eventSlug": "2024-us-election",
+  "marketTitle": "Will Donald Trump win the 2024 US Presidential Election?",
+  "marketImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/trump.png",
+  "marketId": "0x123abc...",
+  "tokenId": "0xtoken...",
+  "txHash": "0xabc123...",
+  "tags": ["politics", "us-election"],
+  "portfolioValueUsd": 125000,
+  "winRate": 0.62,
+  "totalRealizedPnlUsd": 8500,
+  "marketsTraded": 28,
+  "isWhale": true,
+  "isSmartMoney": true,
+  "isInsider": false,
+  "ageHours": 4320,
+  "traderName": "AlphaTrade",
+  "profileImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/avatars/xyz789.jpg"
+}
+```
+
+<RequestExample>
+```bash cURL
+# 1. Get ticket
+TICKET=$(curl -s -X POST https://ws.klarity.trade/stream/wallets/stream-ticket \
+  -H "klarity_access_token: YOUR_JWT" | jq -r '.ticket')
+
+# 2. Connect
+curl -N "https://ws.klarity.trade/stream/wallets/stream?ticket=$TICKET"
+```
+
+```typescript TypeScript
+const es = new EventSource(`https://ws.klarity.trade/stream/wallets/stream?ticket=${ticket}`);
+
+es.addEventListener('trade', (e) => {
+  const trade: TradeAlertEvent = JSON.parse(e.data);
+});
+
+es.addEventListener('system', (e) => {
+  const msg = JSON.parse(e.data);
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: system
+data: {"type":"connected","wallets":["0x742d35cc..."]}
+
+event: trade
+data: {"id":"abc123","timestamp":"2024-01-20T14:30:00.000Z","wallet":"0x742d35cc...","notionalUsd":375,...}
+
+event: trade
+data: {"id":"def456","timestamp":"2024-01-20T14:31:00.000Z","wallet":"0x742d35cc...","notionalUsd":500,...}
+
+: heartbeat
+
+event: trade
+data: {"id":"ghi789","timestamp":"2024-01-20T14:35:00.000Z","wallet":"0x742d35cc...","notionalUsd":1200,...}
+
+```
+</ResponseExample>

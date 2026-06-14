@@ -1,0 +1,77 @@
+---
+title: Insider Tracker Stream (Public)
+openapi: openapi-stream.yaml GET /insider-tracker/public/stream
+description: SSE stream of insider trade alerts with fixed thresholds (no auth)
+---
+
+Fixed thresholds: $10k notional min, 5 markets max, no account age filter.
+
+## SSE Events
+
+### `event: system`
+
+```json
+{ "type": "connected", "config": { "notionalMin": 10000, "uniqueMarketsMax": 5 } }
+```
+
+### `event: trade`
+
+Same `TradeAlertEvent` schema as the authenticated stream.
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-20T14:30:00.000Z",
+  "wallet": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe",
+  "notionalUsd": 15000,
+  "size": 25000,
+  "price": 0.6,
+  "side": "BUY",
+  "outcome": "Yes",
+  "marketSlug": "will-trump-win-2024",
+  "eventSlug": "2024-presidential-election",
+  "marketTitle": "Will Donald Trump win the 2024 US Presidential Election?",
+  "marketImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/trump.png",
+  "marketId": "0x1234567890abcdef",
+  "tokenId": "12345",
+  "txHash": "0xabc123...",
+  "tags": ["politics", "elections"],
+  "portfolioValueUsd": 15000,
+  "winRate": 0.67,
+  "totalRealizedPnlUsd": 12500,
+  "marketsTraded": 3,
+  "isWhale": false,
+  "isSmartMoney": false,
+  "isInsider": true,
+  "ageHours": 24.5,
+  "traderName": "CryptoWhale42",
+  "profileImage": "https://polymarket-upload.s3.us-east-2.amazonaws.com/avatars/abc123.jpg"
+}
+```
+
+<RequestExample>
+```bash cURL
+curl -N "https://ws.klarity.trade/stream/insider-tracker/public/stream"
+```
+
+```typescript TypeScript
+const es = new EventSource('https://ws.klarity.trade/stream/insider-tracker/public/stream');
+
+es.addEventListener('trade', (e) => {
+  const trade: TradeAlertEvent = JSON.parse(e.data);
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```
+event: system
+data: {"type":"connected","config":{"notionalMin":10000,"uniqueMarketsMax":5}}
+
+: heartbeat
+
+event: trade
+data: {"id":"def456","timestamp":"2024-01-20T14:30:00.000Z","wallet":"0x5aa981...","notionalUsd":15000,...}
+
+```
+</ResponseExample>

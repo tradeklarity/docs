@@ -1,0 +1,40 @@
+---
+title: 'Perpetual Smart Money'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets/{coin}/smartmoney
+description: Smart-money holders of a perp, sorted by smart_score desc
+---
+
+Returns addresses currently holding the perp that satisfy the smart-money
+predicate:
+
+```
+closed_position_count >= HL_PERPS_SMART_MIN_CLOSED      (default 20)
+  AND win_rate            >= HL_PERPS_SMART_MIN_WINRATE  (default 0.6)
+  AND realized_pnl        >= HL_PERPS_SMART_MIN_PNL_USD  (default $5,000)
+```
+
+`closed_position_count` and `win_rate` are derived from `hl_perp_user_fills_raw`
+counting `dir IN ('Close Long', 'Close Short')` fills (win = closed_pnl > 0).
+
+Sorted by `smartScore` desc (the same blended 50% win-rate / 30% realized PnL /
+20% volume formula used across HL).
+
+Rate limit: 60 requests/minute.
+
+## Path Parameters
+
+<ParamField path="coin" type="string" required>
+  Bare perp asset symbol.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Number of holders to return (max 100).
+</ParamField>
+
+## Examples
+
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/assets/SOL/smartmoney?limit=20"
+```

@@ -1,0 +1,100 @@
+---
+title: 'PnL History'
+openapi: 'GET /users/{address}/pnl-history'
+description: 'Get historic account PnL time series for a user'
+---
+
+## Overview
+
+Returns cumulative profit-and-loss data points over time, suitable for rendering account PnL charts.
+
+**Use this endpoint for:**
+
+- Rendering user profile PnL charts
+- Historical performance analysis
+- Portfolio value tracking over time
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Wallet address (0x format)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="interval" type="string" default="all">
+  Time range for the chart. Options: `1d`, `1w`, `1m`, `all`
+</ParamField>
+
+<ParamField query="fidelity" type="string" default="1d">
+  Data point granularity. Options: `1h`, `3h`, `12h`, `18h`, `1d`
+</ParamField>
+
+## Response
+
+<ResponseField name="address" type="string">
+  User's wallet address (lowercase)
+</ResponseField>
+
+<ResponseField name="interval" type="string">
+  Time range used
+</ResponseField>
+
+<ResponseField name="fidelity" type="string">
+  Granularity used
+</ResponseField>
+
+<ResponseField name="history" type="array">
+  <Expandable title="PnL data point">
+    <ResponseField name="timestamp" type="integer">
+      Unix timestamp in seconds
+    </ResponseField>
+    <ResponseField name="pnl" type="number">
+      Cumulative PnL in USD at this point in time
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL curl
+  "https://api.klarity.trade/users/0x1abe1368601330a310162064e04d3c2628cb6497/pnl-history?interval=1m&fidelity=1d"
+  ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "address": "0x1abe1368601330a310162064e04d3c2628cb6497",
+  "interval": "1m",
+  "fidelity": "1d",
+  "history": [
+    {
+      "timestamp": 1767787200,
+      "pnl": -448.93
+    },
+    {
+      "timestamp": 1767873600,
+      "pnl": 3906.22
+    },
+    {
+      "timestamp": 1767960000,
+      "pnl": 18203.27
+    }
+  ]
+}
+```
+</ResponseExample>
+
+## See Also
+
+<Card title="Get User Details" icon="user" href="/api-reference/users/get-user-details">
+  View comprehensive user profile with balance, P&L summary, and position counts.
+</Card>
+
+<Card
+  title="Get Active Positions"
+  icon="chart-line"
+  href="/api-reference/users/get-active-positions"
+>
+  View currently open positions with current prices and unrealized P&L.
+</Card>

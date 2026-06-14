@@ -1,0 +1,34 @@
+---
+title: 'Perpetual Cohorts'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/cohorts
+description: Pre-computed cohort distribution of Hyperliquid perpetual traders
+---
+
+Returns perpetual trader buckets for one of three cohort cuts:
+
+- `pnl_tier` — total PnL bucket (whale, sharp, profitable, small, small_loss, underwater)
+- `size_tier` — total volume bucket (mega, large, mid, small, micro)
+- `win_rate_tier` — win rate bucket (elite, sharp, breakeven, losing, cold)
+
+Each bucket reports `memberCount`, `totalVolume`, `totalPnl`, `avgPnl`,
+`avgWinRate`, and `cohortShare` (percent of all traders for that cohort type).
+
+Reads from `hl_perp_cohort_serving` — an RMV refreshed every 10 minutes.
+
+Rate limit: 60 requests/minute. Response cached for 60s.
+
+## Query Parameters
+
+<ParamField query="cohort_type" type="string" default="pnl_tier">
+  One of `pnl_tier` / `size_tier` / `win_rate_tier`.
+</ParamField>
+
+## Examples
+
+```bash PnL distribution
+curl "https://api.klarity.trade/hyperliquid/perps/cohorts?cohort_type=pnl_tier"
+```
+
+```bash Win-rate distribution
+curl "https://api.klarity.trade/hyperliquid/perps/cohorts?cohort_type=win_rate_tier"
+```

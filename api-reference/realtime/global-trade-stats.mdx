@@ -1,0 +1,94 @@
+---
+title: Trade Stream Stats
+openapi: openapi-stream.yaml GET /trades/stats
+description: Debug endpoint showing global trade stream status and configuration
+---
+
+## Overview
+
+Debug endpoint for monitoring the global trade stream service, including connected client count and stream configuration.
+
+## Response
+
+<ResponseField name="connectedClients" type="number">
+  Number of SSE clients currently connected to the global trade stream
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Current stream configuration (fixed for public stream)
+  <Expandable>
+    <ResponseField name="notionalMin" type="number">
+      Minimum notional (USD) for trades to be streamed
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/trades/stats"
+```
+
+```javascript JavaScript
+const response = await fetch('https://ws.klarity.trade/stream/trades/stats');
+const stats = await response.json();
+console.log('Connected clients:', stats.connectedClients);
+console.log('Min notional:', stats.config.notionalMin);
+```
+
+```typescript TypeScript
+interface TradeStreamStats {
+  connectedClients: number;
+  config: {
+    notionalMin: number;
+  };
+}
+
+const response = await fetch('https://ws.klarity.trade/stream/trades/stats');
+const stats: TradeStreamStats = await response.json();
+console.log(
+  `${stats.connectedClients} clients connected, min notional $${stats.config.notionalMin}`
+);
+```
+
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "connectedClients": 42,
+  "config": {
+    "notionalMin": 100
+  }
+}
+```
+</ResponseExample>
+
+## Configuration Details
+
+The global trade stream uses a **fixed, public configuration**:
+
+| Setting          | Value |
+| ---------------- | ----- |
+| Notional Minimum | $100  |
+| Auth Required    | No    |
+| Configurable     | No    |
+
+For customizable configuration with backfill support, use the authenticated [`/insider-tracker/stream`](/api-reference/insider-tracker/stream) endpoint.
+
+## Use Cases
+
+- **Health monitoring** — Check connected client count to detect stream degradation
+- **Configuration verification** — Confirm stream settings match expectations
+- **Capacity planning** — Track concurrent connection trends
+
+## See Also
+
+<Card title="Global Trade Stream" href="/api-reference/realtime/global-trade-stream">
+  Real-time SSE stream of enriched trades
+</Card>
+
+<Card title="Insider Tracker Stats" href="/api-reference/insider-tracker/stats">
+  Stats for the configurable insider tracker stream
+</Card>

@@ -1,0 +1,188 @@
+---
+title: 'Trader Details'
+openapi: openapi-stream.yaml GET /top-trader-signals/traders/{address}
+description: Get detailed performance data and recent trading signals for a specific top trader
+---
+
+## Overview
+
+Returns the full profile and recent signal history for a specific tracked top trader. Returns 404 if the trader is not in the current roster.
+
+<Info>
+Legacy path `/copy-trading/traders/{address}` works identically and is maintained for backwards compatibility.
+</Info>
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  Trader wallet address (e.g., `0x1234...abcd`)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="since" type="string">
+  ISO 8601 timestamp to fetch signals since this time (default: last 24 hours)
+</ParamField>
+
+## Response
+
+<ResponseField name="trader" type="object">
+  Top trader profile (flat object, no nested `stats`)
+  <Expandable title="Trader object">
+    <ResponseField name="address" type="string">
+      Trader wallet address (lowercase hex)
+    </ResponseField>
+    <ResponseField name="rank" type="integer">
+      Rank among tracked traders (1 = highest smart score)
+    </ResponseField>
+    <ResponseField name="smartScore" type="number">
+      Composite smart money score
+    </ResponseField>
+    <ResponseField name="sharpeRatio" type="number">
+      Risk-adjusted return metric (Sharpe ratio)
+    </ResponseField>
+    <ResponseField name="winRate" type="number">
+      Historical win rate as fraction (0-1)
+    </ResponseField>
+    <ResponseField name="totalPnl" type="number">
+      Total realized P&L in USD
+    </ResponseField>
+    <ResponseField name="positionCount" type="integer">
+      Number of positions traded
+    </ResponseField>
+    <ResponseField name="maxDrawdown" type="number">
+      Maximum drawdown as fraction (0-1)
+    </ResponseField>
+    <ResponseField name="currentStreak" type="integer">
+      Current win/loss streak (positive = wins, negative = losses)
+    </ResponseField>
+    <ResponseField name="lastTradeAt" type="string|null">
+      ISO 8601 timestamp of the trader's most recent trade, or `null`
+    </ResponseField>
+    <ResponseField name="addedAt" type="number">
+      Epoch milliseconds when the trader was added to the roster
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="recentSignals" type="array">
+  Array of recent trading signals from this trader (up to 500, ordered by timestamp ASC)
+  <Expandable title="Signal object">
+    <ResponseField name="id" type="string">
+      Unique signal ID
+    </ResponseField>
+    <ResponseField name="wallet" type="string">
+      Trader wallet address
+    </ResponseField>
+    <ResponseField name="marketSlug" type="string|null">
+      Market slug where trade occurred
+    </ResponseField>
+    <ResponseField name="marketTitle" type="string|null">
+      Human-readable market title
+    </ResponseField>
+    <ResponseField name="outcome" type="string|null">
+      Outcome label (e.g., "Yes", "No")
+    </ResponseField>
+    <ResponseField name="side" type="string|null">
+      Trade direction: `BUY` or `SELL`
+    </ResponseField>
+    <ResponseField name="size" type="number">
+      Position size in shares
+    </ResponseField>
+    <ResponseField name="price" type="number">
+      Execution price per share (0-1 range)
+    </ResponseField>
+    <ResponseField name="notionalUsd" type="number">
+      Trade notional value in USD
+    </ResponseField>
+    <ResponseField name="timestamp" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+    <ResponseField name="txHash" type="string|null">
+      On-chain transaction hash
+    </ResponseField>
+    <ResponseField name="marketImage" type="string|null">
+      Market image URL
+    </ResponseField>
+    <ResponseField name="tags" type="string[]">
+      Trade classification tags
+    </ResponseField>
+    <ResponseField name="portfolioValueUsd" type="number">
+      Trader's portfolio value in USD
+    </ResponseField>
+    <ResponseField name="winRate" type="number|null">
+      Trader's win rate at time of signal
+    </ResponseField>
+    <ResponseField name="totalRealizedPnlUsd" type="number">
+      Trader's total realized PnL in USD
+    </ResponseField>
+    <ResponseField name="marketsTraded" type="integer">
+      Number of markets the trader has participated in
+    </ResponseField>
+    <ResponseField name="isWhale" type="boolean">
+      Whether the trade was whale-classified
+    </ResponseField>
+    <ResponseField name="isSmartMoney" type="boolean">
+      Whether the trader is classified as smart money
+    </ResponseField>
+    <ResponseField name="isInsider" type="boolean">
+      Whether the trade matched insider patterns
+    </ResponseField>
+    <ResponseField name="ageHours" type="number|null">
+      Wallet age in hours
+    </ResponseField>
+    <ResponseField name="traderName" type="string|null">
+      Known trader name (if resolved)
+    </ResponseField>
+    <ResponseField name="profileImage" type="string|null">
+      Trader profile image URL
+    </ResponseField>
+    <ResponseField name="rank" type="integer">
+      Leaderboard rank at time of signal
+    </ResponseField>
+    <ResponseField name="smartScore" type="number">
+      Composite smart score at time of signal
+    </ResponseField>
+    <ResponseField name="sharpeRatio" type="number">
+      Sharpe ratio at time of signal
+    </ResponseField>
+    <ResponseField name="totalPnl" type="number">
+      Total PnL in USD at time of signal
+    </ResponseField>
+    <ResponseField name="positionCount" type="integer">
+      Position count at time of signal
+    </ResponseField>
+    <ResponseField name="maxDrawdown" type="number">
+      Max drawdown at time of signal
+    </ResponseField>
+    <ResponseField name="currentStreak" type="integer">
+      Win/loss streak at time of signal
+    </ResponseField>
+    <ResponseField name="confidence" type="string">
+      Signal confidence: `high` (top 10 traders) or `medium` (top 100)
+    </ResponseField>
+    <ResponseField name="traderTier" type="string">
+      Trader tier: `elite` (top 10) or `top` (top 100)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="signalCount" type="integer">
+  Number of signals returned
+</ResponseField>
+
+<ResponseField name="since" type="string">
+  ISO 8601 timestamp of the query window start
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl "https://ws.klarity.trade/stream/top-trader-signals/traders/0x1234567890123456789012345678901234567890?since=2026-03-19T00:00:00Z"
+```
+</RequestExample>
+
+## Related Endpoints
+
+- [`GET /top-trader-signals/stream`](/api-reference/copy-trading/stream) — Stream live signals from all top traders
+- [`GET /top-trader-signals/traders`](/api-reference/copy-trading/get-traders) — List all tracked traders
+- [`GET /top-trader-signals/stats`](/api-reference/copy-trading/stats) — System statistics

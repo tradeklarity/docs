@@ -1,0 +1,38 @@
+---
+title: 'HIP-4 User Fills'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/users/{address}/fills
+description: Recent HIP-4 fills for a user with PnL and settlement detail
+---
+
+Returns recent fills for a user from `hl_user_fills_raw`. Each fill carries the
+HIP-4 direction (`Buy`, `Sell`, `Split`, `Merge`, `Negate`, `Settlement`),
+realized closed PnL, fee, and post-fill starting position.
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="50">
+  Max fills to return (1-200)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/users/0xabc123.../fills?limit=50"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/users/0xabc123.../fills?limit=50',
+);
+const { data, meta } = await res.json();
+// data[0]: { tid, outcomeId, side, aggressorSide, dir, px, sz, notional,
+//            startPosition, closedPnl, fee, feeToken, fillTs }
+```
+</CodeGroup>

@@ -1,0 +1,54 @@
+---
+title: 'List Perpetual Assets'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/perps/assets
+description: Paginated list of Hyperliquid perpetual assets with current mark/funding/OI/volume
+---
+
+Returns active Hyperliquid perpetual assets with current mark price, oracle price,
+mid price, funding rate, open interest, and 24h trading volume.
+
+`category` is a coarse-grained bucket (`majors` / `alts` / `memes` / `other`)
+derived from the coin symbol, useful for default filters.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Page size (max 100)
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Offset for pagination
+</ParamField>
+
+<ParamField query="search" type="string">
+  Case-insensitive substring match on `coin`
+</ParamField>
+
+<ParamField query="category" type="string">
+  `majors` / `alts` / `memes` / `other`
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="volume_24h">
+  Sort field: `volume_24h`, `open_interest`, `mark_px`, `funding`, `first_seen_at`
+</ParamField>
+
+<ParamField query="sortOrder" type="string" default="desc">
+  Sort direction: `asc` or `desc`
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/perps/assets?limit=20&category=majors&sortBy=open_interest"
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.klarity.trade/hyperliquid/perps/assets?limit=20&category=majors&sortBy=open_interest',
+);
+const { data, meta } = await res.json();
+// data[0]: { coin: 'BTC', category: 'majors', markPx: 100000, funding: 0.000125,
+//            openInterest: 25_000_000, volume24h: 1_500_000, ... }
+```
+</CodeGroup>

@@ -1,0 +1,37 @@
+---
+title: 'HIP-4 Wallet Cluster Lookup'
+openapi: openapi-hyperliquid.yaml GET /hyperliquid/wallets/{address}/cluster
+description: Resolve a HIP-4 wallet to its cluster
+---
+
+Resolves a wallet to its `cluster_id` from `hl_wallet_clusters`, then returns
+the same metadata fields as
+[`GET /hyperliquid/clusters/:id`](/api-reference/hyperliquid/get-cluster).
+
+Returns 404 if the wallet has no cluster assignment (the common case for
+low-activity addresses or before the daily clustering job has run).
+
+## Path Parameters
+
+<ParamField path="address" type="string" required>
+  0x-prefixed Ethereum-style address (40 hex chars)
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl "https://api.klarity.trade/hyperliquid/wallets/0xabc123.../cluster"
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.klarity.trade/hyperliquid/wallets/0xabc123.../cluster');
+if (res.status === 404) {
+  // Wallet not yet clustered.
+} else {
+  const { address, cluster, memberCount, totalVolume, avgPnl, dominantMarkets } =
+    await res.json();
+  // cluster: { id, size, modularity }
+}
+```
+</CodeGroup>

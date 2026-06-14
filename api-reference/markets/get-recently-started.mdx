@@ -1,0 +1,49 @@
+---
+title: 'Recently Started'
+openapi: 'GET /markets/recently-started'
+description: 'Get the newest active markets sorted by creation date'
+---
+
+Returns active, non-closed prediction markets sorted by creation date (newest first). Use this endpoint to discover recently launched markets and spot early trading opportunities.
+
+### Key Features
+
+- **Newest markets first** -- sorted by `created_at` descending
+- **Active only** -- filters out closed and inactive markets
+- **Lightweight response** -- includes key market metadata and metrics from the serving table
+- **Configurable limit** -- return up to 50 markets
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `limit` | integer | 10 | Number of markets to return (1-50) |
+
+### Example Request
+
+```bash
+curl "https://api.klarity.trade/markets/recently-started?limit=5"
+```
+
+### Response Format
+
+Returns an array of market objects with key metadata:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `markets` | array | Array of market objects |
+| `markets[].slug` | string | Market slug for follow-up API calls |
+| `markets[].question` | string | The market question |
+| `markets[].category` | string | Market category |
+| `markets[].createdAt` | string | ISO-8601 creation timestamp |
+| `markets[].endDate` | string \| null | Expected resolution date |
+| `markets[].volume` | number | Total trading volume in USD |
+| `markets[].liquidity` | number | Current liquidity in USD |
+| `markets[].totalHolders` | number | Total number of holders |
+| `markets[].tags` | string[] | Tags from the parent event |
+
+<Tip>
+  For more advanced filtering of new markets (e.g., by volume, holders, or deltas), use the
+  [Discover Markets](/api-reference/markets/post-discover) endpoint with `stages: ["new"]` or
+  `created_at_min` / `created_at_max` date filters.
+</Tip>

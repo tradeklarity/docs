@@ -1,0 +1,52 @@
+---
+title: 'Discover Perpetual Assets'
+openapi: openapi-hyperliquid.yaml POST /hyperliquid/perps/discover
+description: Cursor-paginated perp asset discovery with delta windows and lifecycle stages
+---
+
+Cursor-paginated perp asset discovery with per-window deltas (volume / trades /
+funding / open interest / mark price), holder breakdowns, and lifecycle stage.
+Single-phase query against `hl_perp_asset_discover_serving` — an RMV refreshed
+every 5 minutes.
+
+Lifecycle stages (perp-specific, no expiry-driven `resolving`):
+- `new` — asset listed in the last 6 hours
+- `building` — volume_24h significantly above volume_1h * 24
+- `peak` — vol_24h >= $1M
+- `quiet` — none of the above
+
+Rate limit: 30 requests/minute.
+
+## Request Body
+
+<ParamField body="search" type="string">Coin search (substring).</ParamField>
+<ParamField body="category" type="string">`majors` / `alts` / `memes` / `other`</ParamField>
+<ParamField body="holdersMin" type="integer">Min total holders.</ParamField>
+<ParamField body="holdersMax" type="integer">Max total holders.</ParamField>
+<ParamField body="volumeMin" type="number">Min 24h volume USD.</ParamField>
+<ParamField body="volumeMax" type="number">Max 24h volume USD.</ParamField>
+<ParamField body="openInterestMin" type="number">Min open interest.</ParamField>
+<ParamField body="openInterestMax" type="number">Max open interest.</ParamField>
+<ParamField body="stages" type="array">Lifecycle filter: `new` / `building` / `peak` / `quiet`.</ParamField>
+<ParamField body="deltas" type="array">
+  Up to 10 delta requests, each `{ metric, window, compare }`. Metrics:
+  `volume`, `trades`, `open_interest`, `mark_px`, `funding`. Windows: `5m`,
+  `15m`, `30m`, `1h`, `4h`, `24h`, `7d`, `30d`.
+</ParamField>
+<ParamField body="sort" type="object">Sort spec `{ metric, direction, window?, compare? }`.</ParamField>
+<ParamField body="pagination" type="object">`{ cursor?, limit }`. Default limit 20, max 100.</ParamField>
+
+## Examples
+
+```bash Top perps by 1h volume change
+curl -X POST "https://api.klarity.trade/hyperliquid/perps/discover" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "category": "majors",
+        "deltas": [
+          { "metric": "volume", "window": "1h", "compare": "delta_pct" },
+          { "metric": "open_interest", "window": "1h", "compare": "delta_pct" }
+        ],
+        "sort": { "metric": "volume_24h", "direction": "desc", "window": "1h", "compare": "delta_pct" }
+      }'
+```

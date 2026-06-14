@@ -1,0 +1,144 @@
+---
+title: 'Insider Detection'
+openapi: openapi-api.yaml GET /markets/{slug}/insiders
+description: Get fresh wallet holders (potential insiders)
+---
+
+## Overview
+
+Returns holders classified as **insiders** for a specific market. Insiders are fresh wallets (< 48 hours old) making significant moves shortly after creation.
+
+<Warning>
+  "Insider" does not imply illegal activity. It flags fresh wallets that may have information
+  advantages. Many turn out to be secondary wallets of existing traders.
+</Warning>
+
+<Card title="Holder Classification" icon="lightbulb" href="/concepts/holder-classification">
+  Learn how whale, smart money, and insider classifications work.
+</Card>
+
+## Path Parameters
+
+<ParamField path="slug" type="string" required>
+  Market slug identifier (e.g., `will-trump-win-2024`)
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  <Expandable title="Participant object">
+    <ResponseField name="address" type="string">
+      Wallet address
+    </ResponseField>
+    <ResponseField name="isPortfolioWhale" type="boolean">
+      Whether holder is also classified as a portfolio whale
+    </ResponseField>
+    <ResponseField name="isSmartMoney" type="boolean">
+      Whether holder also meets smart money criteria
+    </ResponseField>
+    <ResponseField name="isInsider" type="boolean">
+      Whether holder is classified as an insider (always `true` in this endpoint)
+    </ResponseField>
+    <ResponseField name="winRatePct" type="number | null">
+      Win rate percentage across closed positions (0-100), or null if unavailable
+    </ResponseField>
+    <ResponseField name="totalRealizedPnlUsd" type="number | null">
+      Total realized PnL in USD, or null if unavailable
+    </ResponseField>
+    <ResponseField name="closedPositions" type="number | null">
+      Number of closed/settled positions, or null if unavailable
+    </ResponseField>
+    <ResponseField name="portfolioValueUsd" type="number | null">
+      Total portfolio value in USD, or null if unavailable
+    </ResponseField>
+    <ResponseField name="ageHours" type="number | null">
+      Account age in hours on Polymarket, or null if unavailable
+    </ResponseField>
+    <ResponseField name="profile" type="object | null">
+      Polymarket user profile (null if the user has no profile)
+      <Expandable title="Profile fields">
+        <ResponseField name="name" type="string | null">
+          Display name
+        </ResponseField>
+        <ResponseField name="pseudonym" type="string | null">
+          Pseudonym
+        </ResponseField>
+        <ResponseField name="displayName" type="string | null">
+          Formatted display name
+        </ResponseField>
+        <ResponseField name="profileImage" type="string | null">
+          Profile image URL
+        </ResponseField>
+        <ResponseField name="xUsername" type="string | null">
+          X (Twitter) username
+        </ResponseField>
+        <ResponseField name="verifiedBadge" type="boolean">
+          Whether profile has a verified badge
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="shares" type="number">
+      Number of shares held in this market
+    </ResponseField>
+    <ResponseField name="positionValueUsd" type="number | null">
+      Position value in USD (shares * price), or null if price unavailable
+    </ResponseField>
+    <ResponseField name="walletAgeHours" type="number | null">
+      Wallet age in hours, or null if unavailable
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  <ResponseField name="marketId" type="string">
+    Condition ID
+  </ResponseField>
+  <ResponseField name="slug" type="string">
+    Market slug
+  </ResponseField>
+</ResponseField>
+
+<RequestExample>
+  ```bash cURL
+  curl "https://api.klarity.trade/markets/will-trump-win-2024/insiders"
+  ```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "data": [
+    {
+      "address": "0x5aa981521b4e94fee3b3bf18fe441f62e865febe",
+      "isPortfolioWhale": true,
+      "isSmartMoney": false,
+      "isInsider": true,
+      "winRatePct": null,
+      "totalRealizedPnlUsd": null,
+      "closedPositions": 0,
+      "portfolioValueUsd": 15000,
+      "ageHours": 18,
+      "profile": null,
+      "shares": 12500,
+      "positionValueUsd": 15000,
+      "walletAgeHours": 18
+    }
+  ],
+  "meta": {
+    "marketId": "0x8f8783...",
+    "slug": "will-trump-win-2024"
+  }
+}
+```
+</ResponseExample>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="All Holders" icon="users" href="/api-reference/markets/get-holders">
+    Get all holders with classification data
+  </Card>
+  <Card title="Whale Holders" icon="chart-line" href="/api-reference/markets/get-whales">
+    Get whale holders
+  </Card>
+</CardGroup>

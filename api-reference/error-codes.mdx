@@ -1,0 +1,80 @@
+---
+title: Error Codes
+description: 'HTTP status codes and error response format'
+---
+
+All API errors return a JSON object with a consistent structure:
+
+```json
+{
+  "error": "Error message describing what went wrong",
+  "details": [],
+  "traceId": "abc-123-def"
+}
+```
+
+| Field     | Type   | Description                                        |
+| --------- | ------ | -------------------------------------------------- |
+| `error`   | string | Human-readable error message                       |
+| `details` | array  | Validation errors or additional context (optional) |
+| `traceId` | string | Unique request identifier for debugging            |
+
+## Status Codes
+
+### Success
+
+| Code  | Meaning | Description       |
+| ----- | ------- | ----------------- |
+| `200` | OK      | Request succeeded |
+
+### Client Errors
+
+| Code  | Meaning           | Description                                                            |
+| ----- | ----------------- | ---------------------------------------------------------------------- |
+| `400` | Bad Request       | Invalid parameters, missing required fields, or malformed request body |
+| `404` | Not Found         | Market slug, wallet address, or resource not found                     |
+| `429` | Too Many Requests | Rate limit exceeded (see [Rate Limits](/api-reference/rate-limits))    |
+
+### Server Errors
+
+| Code  | Meaning               | Description                                                          |
+| ----- | --------------------- | -------------------------------------------------------------------- |
+| `500` | Internal Server Error | Unexpected server error. Include the `traceId` when reporting issues |
+| `503` | Service Unavailable   | Database or upstream dependency is temporarily unavailable           |
+
+## Validation Errors (400)
+
+When request validation fails, the `details` array contains Zod validation errors:
+
+```json
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "code": "too_small",
+      "minimum": 1,
+      "type": "number",
+      "inclusive": true,
+      "message": "Number must be greater than or equal to 1",
+      "path": ["limit"]
+    }
+  ],
+  "traceId": "abc-123-def"
+}
+```
+
+## Not Found Errors (404)
+
+Returned when a market slug or wallet address doesn't exist:
+
+```json
+{
+  "error": "Market not found",
+  "traceId": "abc-123-def"
+}
+```
+
+<Note>
+  All responses include a `traceId`. When reporting issues, include this value to help with
+  debugging.
+</Note>

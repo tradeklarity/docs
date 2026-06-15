@@ -5461,16 +5461,14 @@ components:
   schemas:
     schema0Input:
       type: object
-      description: >-
-        Compound filter group. Combine conditions with AND/OR logic; groups may
-        nest to express complex queries (e.g. "volume delta > X AND (whales > Y
-        OR smart money > Z)").
+      description: Compound filter group — combine conditions with AND/OR logic; groups may nest to express complex queries.
       properties:
         logic:
           type: string
-          enum: [and, or]
+          enum:
+            - and
+            - or
           default: and
-          description: How the conditions in this group combine.
         conditions:
           type: array
           description: Filter conditions, or nested filter groups.
@@ -5481,19 +5479,34 @@ components:
                 properties:
                   metric:
                     type: string
-                    description: Metric to filter on (e.g. volume, holders_total).
                   window:
                     type: string
-                    enum: [5m, 15m, 30m, 1h, 4h, 24h, 7d, 30d]
-                    description: Time window for a delta comparison (omit for current value).
+                    enum:
+                      - 5m
+                      - 15m
+                      - 30m
+                      - 1h
+                      - 4h
+                      - 24h
+                      - 7d
+                      - 30d
                   compare:
                     type: string
-                    enum: [delta_abs, delta_pct]
-                    description: Absolute or percentage change (omit for current value).
+                    enum:
+                      - delta_abs
+                      - delta_pct
                   operator:
                     type: string
-                    enum: [gt, gte, lt, lte, eq]
+                    enum:
+                      - gt
+                      - gte
+                      - lt
+                      - lte
+                      - eq
                   value:
                     type: number
-                required: [metric, operator, value]
+                required:
+                  - metric
+                  - operator
+                  - value
               - $ref: "#/components/schemas/schema0Input"

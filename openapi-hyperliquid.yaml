@@ -1747,6 +1747,34 @@ components:
           type: string
           enum: [ok, too_new, missing_history, div0]
 
+    HlOutcomeExecution:
+      type: object
+      description: |
+        Precomputed order-routing identity for both tradeable sides of an outcome.
+        Toolsets derives this once (pure arithmetic from `outcomeId`) so the frontend can
+        build a CLOB order and proxy it to the trade backend without recomputing the
+        encoding — and the backend signs the same `assetId`, so the two can never drift.
+
+        Per side: `encoding = 10 * outcomeId + side` (side 0 = YES, 1 = NO);
+        `coin = "#" + encoding` (data-API identifier); `assetId = 100000000 + encoding`
+        (the `a` field of the L1 order action). Order-validation precision — integer size,
+        5-significant-figure price, $10 min notional — is a **universal** Hyperliquid rule
+        the execution/frontend layer applies, not per-outcome data, so it is not included here.
+      properties:
+        yes: { $ref: '#/components/schemas/HlOutcomeSideExecution' }
+        'no': { $ref: '#/components/schemas/HlOutcomeSideExecution' }
+
+    HlOutcomeSideExecution:
+      type: object
+      description: Order-routing identity for a single side (YES or NO) of an outcome.
+      properties:
+        side: { type: integer, enum: [0, 1], description: '0 = YES, 1 = NO' }
+        encoding: { type: integer, description: 'HIP-4 coin encoding: `10 * outcomeId + side`' }
+        coin: { type: string, description: 'Data-API coin identifier, e.g. `#1730`' }
+        assetId:
+          type: integer
+          description: 'Order-action assetId (`100000000 + encoding`), e.g. 100001730 — the `a` field the signer submits'
+
     HlOutcomeDiscoverItem:
       type: object
       description: |
@@ -1776,6 +1804,7 @@ components:
           properties:
             yes: { type: string }
             'no': { type: string }
+        execution: { $ref: '#/components/schemas/HlOutcomeExecution' }
         isResolved: { type: boolean }
         winningSide: { type: integer, nullable: true }
         yesMidPx: { type: number }

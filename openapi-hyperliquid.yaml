@@ -1805,6 +1805,14 @@ components:
             yes: { type: string }
             'no': { type: string }
         execution: { $ref: '#/components/schemas/HlOutcomeExecution' }
+        bucket:
+          type: object
+          nullable: true
+          description: 'Price-bucket placement, set only on outcomes embedded in a `class: priceBucket` question card (joined from the question''s `priceThresholds` and this outcome''s `index:N` description). A null bound means open-ended (index 0 = below the first threshold; top bucket = above the last). Null on non-bucket outcomes and in flat /outcomes/discover responses.'
+          properties:
+            index: { type: integer, description: 'Bucket position, 0-based (N thresholds → N+1 buckets)' }
+            lower: { type: number, nullable: true, description: 'Lower price bound (null = open-ended below)' }
+            upper: { type: number, nullable: true, description: 'Upper price bound (null = open-ended above)' }
         isResolved: { type: boolean }
         winningSide: { type: integer, nullable: true }
         yesMidPx: { type: number }
@@ -1987,6 +1995,25 @@ components:
           description: 'For standalone cards: the wrapped outcome''s ID. Null for real questions.'
         name: { type: string }
         description: { type: string }
+        class:
+          type: string
+          description: 'Parsed from the pipe-encoded description (e.g. `priceBucket` for recurring price-ladder questions). Empty for prose questions.'
+        underlying:
+          type: string
+          description: 'Parsed underlying asset symbol (e.g. `BTC`). Empty for prose questions.'
+        expiryAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Parsed expiry (recurring questions). Null for prose questions.'
+        period:
+          type: string
+          description: 'Parsed recurrence period (e.g. `1d`). Empty for prose questions.'
+        priceThresholds:
+          type: array
+          nullable: true
+          items: { type: number }
+          description: 'Ascending bucket thresholds for `class: priceBucket` questions — N thresholds carve the price line into N+1 buckets. Each embedded outcome carries its joined placement in `bucket`. Null otherwise.'
         fallbackOutcome:
           type: integer
           nullable: true
